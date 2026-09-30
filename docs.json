@@ -57,34 +57,8 @@
         "pages": [
           "overview",
           {
-            "group": "Markets",
-            "pages": [
-              "markets-endpoints",
-              "untitled-page"
-            ]
-          },
-          {
-            "group": "Quote",
-            "pages": [
-              "quote"
-            ]
-          },
-          {
-            "group": "Orders",
-            "pages": [
-              "orders"
-            ]
-          },
-          {
-            "group": "Limit Orders",
-            "pages": [
-              "delete-limit-orders",
-              "get-limt-orders",
-              "post-limit-orders",
-              "put-limit-orders",
-              "post-market-order",
-              "get-limit-order-status"
-            ]
+            "group": "API Reference",
+            "openapi": "https://api.archer.exchange/v1/docs/openapi.json"
           },
           {
             "group": "Websockets",
