@@ -1,0 +1,73 @@
+{
+  "projectType": "saas",
+  "projectName": "Archer Exchange",
+  "projectDescription": "Archer is a fully on-chain order book exchange on Solana, built for traders and market makers to access deep, liquid markets with best-in-class adverse selection protection.",
+  "theme": "sequoia",
+  "primaryColor": "#f06820",
+  "lightColor": "#ff7835",
+  "darkColor": "#f06820",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "why-archer",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/maker-book",
+              "concepts/matching-engine",
+              "concepts/taker-order-book",
+              "concepts/async-execution",
+              "concepts/fees"
+            ]
+          },
+          {
+            "group": "Market Making",
+            "pages": [
+              "market-making/overview",
+              "market-making/best-practices",
+              "market-making/delegation",
+              "market-making/starter-template"
+            ]
+          },
+          {
+            "group": "Markets",
+            "pages": [
+              "markets/overview"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Dedicated per-maker order books (MakerBooks) with zero write contention",
+    "On-chain matching engine with price priority pro rata execution",
+    "Asynchronous swap execution with configurable slot delay for adverse selection protection",
+    "Resting limit orders via TakerOrderBook (up to 256 active orders per market)",
+    "Sync spread ticks — automatic spread widening for atomic/synchronous flow",
+    "Sync fee multiplier — configurable fee scaling for synchronous vs asynchronous swaps",
+    "Delegate key support for MakerBooks",
+    "Integrator fee revenue sharing (50% of taker fees for aggregators)"
+  ],
+  "publicApiSurface": [
+    "MakerBook — UpdateBook instruction (update order levels)",
+    "MakerBook — UpdateMidPrice instruction (recenter all levels around new mid price)",
+    "MakerBook — CancelAll instruction (O(1) cancel all orders)",
+    "MakerBook — Deposit / Withdraw (manage collateral)",
+    "MakerBook — sync_spread_ticks parameter",
+    "MakerBook — sequence_number (monotonically increasing update counter)",
+    "TakerOrderBook — resting limit orders (128 bids + 128 asks per market)",
+    "Synchronous swap — instant market order execution",
+    "Asynchronous swap — intent-based execution with n-slot delay",
+    "Market configuration — taker_fee_ppm, maker_fee_ppm, sync_fee_multiplier, min/max slot delay"
+  ]
+}

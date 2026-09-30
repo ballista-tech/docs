@@ -1,0 +1,83 @@
+---
+title: "Get Market Details"
+api: "GET https://api-staging.archer.exchange/v1/markets/{address}"
+description: "Returns the configuration and metadata for a single market."
+---
+
+<RequestExample>
+
+```bash Request
+curl -X 'GET' \
+  'https://api.archer.exchange/v1/markets/A7Zx9dfLuZmdXJjdfakwLbnPmeHE8L28Nf5D2buCCFNq' \
+  -H 'accept: application/json'
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200
+//Market details.
+{
+  "address": "string",
+  "baseToken": {
+    "decimals": 9,
+    "logoUri": "string",
+    "mint": "string",
+    "name": "Solana",
+    "symbol": "SOL"
+  },
+  "createdAt": "string",
+  "limitOrderFeePpm": 0,
+  "makerRebatePpm": 0,
+  "minOrderSize": "string",
+  "mode": "string",
+  "quoteToken": {
+    "decimals": 9,
+    "logoUri": "string",
+    "mint": "string",
+    "name": "Solana",
+    "symbol": "SOL"
+  },
+  "status": "active",
+  "syncFeeMultiplier": 0,
+  "syncFeePpm": 0,
+  "takerFeePpm": 0,
+  "tickSize": "string",
+  "type": "continuous"
+}
+```
+
+```json 400 
+//Invalid request parameters.
+{
+  "error": "INVALID_PARAMS",
+  "message": "Invalid market address: xyz"
+}
+```
+
+```json 404
+// Market not found.
+{
+  "error": "MARKET_NOT_FOUND",
+  "message": "Market not found: 5Ggx...abc"
+}
+```
+
+```json 429
+//Too many requests.
+{
+  "error": "RATE_LIMITED",
+  "message": "Too many requests. Please slow down."
+}
+```
+
+</ResponseExample>
+
+#### Query Parameters
+
+<ParamField path="address" type="string" required>
+  Base58-encoded Solana address of the market.
+
+  Example: `5Ggx...abc`
+</ParamField>

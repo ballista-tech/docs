@@ -1,0 +1,183 @@
+---
+title: "Subscribing"
+---
+
+### Subscribe to per-market channels
+
+```json
+{
+
+  "op": "subscribe",
+
+  "channels": ["orderbook", "trades", "ticker", "limit_orders"],
+
+  "market": "<market_pubkey>"
+
+}
+```
+
+Server replies with a confirmation listing the channels that became newly-subscribed:
+
+```json
+{
+
+  "op": "subscribed",
+
+  "channels": ["orderbook", "trades", "ticker", "limit_orders"],
+
+  "market": "<market_pubkey>"
+
+}
+```
+
+### Subscribe to per-wallet channels
+
+```json
+{
+
+  "op": "subscribe",
+
+  "channels": ["user_orders", "user_fills"],
+
+  "user": "<wallet_pubkey>"
+
+}
+```
+
+Confirmation:
+
+```json
+{
+
+  "op": "subscribed",
+
+  "channels": ["user_orders", "user_fills"],
+
+  "user": "<wallet_pubkey>"
+
+}
+```
+
+You can subscribe to multiple wallets on one connection: each subscribe request scopes to
+
+one wallet. Mixing market-keyed and wallet-keyed channels in a single `subscribe` request is
+
+_allowed_, the server partitions them by keying, but each group needs its matching field: 
+
+market-keyed channels require `market`, wallet-keyed channels require `user`.
+
+> **Recommended: send one** `subscribe `**per keying.** If you mix groups and a required field is
+>
+> missing, the server emits the `INVALID_MESSAGE` error for the first offending group and
+>
+> **stops processing the rest of that request** — the other groups in the same frame are
+>
+> silently skipped. To avoid this, send market channels (with `market`), wallet channels (with
+>
+>  `user`), and global channels in separate `subscribe` frames. It's cheap and unambiguous.
+
+For each newly-subscribed channel that has a snapshot semantic `orderbook`, `trades`, 
+
+`ticker`), the server immediately pushes a snapshot frame on the same connection. 
+
+Subsequent frames for that channel are incremental updates `limit_orders` / `user_orders` 
+
+`user_fills` have no snapshot, they're event-driven only.
+
+If you're already subscribed to a channel, you get an `ALREADY_SUBSCRIBED` error
+
+for that channel (channel-by-channel partially-new subscriptions still proceed
+
+for the new ones). Unknown channel names return `INVALID_MESSAGE`.
+
+### Subscribe to kline / mid\_kline
+
+Kline subscriptions take a `resolution` instead of a `channels` list, because
+
+only one resolution per market per connection is active at a time. Re-subscribing
+
+to a different resolution replaces the current one.
+
+```json
+{ "op": "subscribe_kline", "resolution": "1", "market": "<market_pubkey>" }
+```
+
+```json
+{ "op": "subscribe_mid_kline", "resolution": "5", "market": "<market_pubkey>" }
+```
+
+Valid resolutions: `"1"`, `"5"`, `"15"`, `"30"`, `"60"`, `"240"`, `"D"`, `"W"`, `"M"`. Anything 
+
+else returns `INVALID_RESOLUTION`.
+
+Confirmation:
+
+```json
+{ "op": "subscribed_kline", "resolution": "1", "market": "<market_pubkey>" }
+
+{ "op": "subscribed_mid_kline", "resolution": "5", "market": "<market_pubkey>" }
+```
+
+Followed immediately by a snapshot of the current bar.
+
+### Subscribe to global channels
+
+```json
+{ "op": "subscribe", "channels": ["mini_tickers"] }
+
+{ "op": "subscribe", "channels": ["market_updates"] }
+```
+
+Global channels are connection-wide and need no key. A `market` field, if present, is ignored 
+
+for these channels (harmless to send for parity with your other subscribe calls).
+
+**The** `subscribed `**confirmation for a global channel echoes a** `market `**field.** Because global 
+
+channels are routed through the market-subscribe path internally, the confirmation for e.g. 
+
+`mini_tickers` comes back as
+
+`{"op":"subscribed","channels":["mini_tickers"],"market":"11111111111111111111111111111111"}`
+
+(a placeholder all-ones address, or the market you passed if you passed one).
+
+**Ignore the** `market `**field on global-channel confirmations**, it carries no meaning.
+
+Match the confirmation on the `channels` array instead.
+
+### Unsubscribing
+
+```json
+{ "op": "unsubscribe", "channels": ["orderbook"], "market": "<market_pubkey>" }
+
+{ "op": "unsubscribe", "channels": ["user_orders"], "user": "<wallet_pubkey>" }
+
+{ "op": "unsubscribe", "channels": ["mini_tickers"] }
+
+{ "op": "unsubscribe_kline", "resolution": "1", "market": "<market_pubkey>" }
+
+{ "op": "unsubscribe_mid_kline", "resolution": "5", "market": "<market_pubkey>" }
+```
+
+Unsubscribing a channel you weren't subscribed to returns `NOT_SUBSCRIBED`.
+
+(The `resolution` in `unsubscribe_kline` / `unsubscribe_mid_kline` is required
+
+by the message shape but ignored — there's only one active resolution per market
+
+to remove.)
+
+### Resync
+
+If your client detects a gap or out-of-order sequence (e.g., it missed an orderbook delta), 
+
+request a fresh snapshot for that market without re-subscribing:
+
+```json
+{ "op": "resync", "market": "<market_pubkey>" }
+```
+
+The server re-sends a snapshot for every snapshot-bearing channel currently subscribed for 
+
+that market (orderbook, trades, ticker, kline, mid\_kline).

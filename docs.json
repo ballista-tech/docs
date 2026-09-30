@@ -1,0 +1,158 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "sequoia",
+  "name": "Archer Exchange",
+  "description": "A fully on-chain order book exchange on Solana, built for traders and market makers.",
+  "colors": {
+    "primary": "#f06820",
+    "light": "#ff7835",
+    "dark": "#f06820"
+  },
+  "background": {
+    "color": {
+      "dark": "#0c0d12",
+      "light": "#f0f0f3"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Archer Spot",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "overview/what-is-archer",
+              "overview/built-for-market-makers",
+              "overview/why-archer"
+            ]
+          },
+          {
+            "group": "Technical Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/maker-book",
+              "architecture/matching-engine",
+              "architecture/fees",
+              "architecture/maker-registries"
+            ]
+          },
+          {
+            "group": "Getting started",
+            "pages": [
+              "getting-started/starter-template",
+              "getting-started/best-practices"
+            ]
+          },
+          {
+            "group": "Legal",
+            "pages": [
+              "terms-of-service"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Archer Trading API",
+        "pages": [
+          "overview",
+          {
+            "group": "Markets",
+            "pages": [
+              "markets-endpoints",
+              "untitled-page"
+            ]
+          },
+          {
+            "group": "Quote",
+            "pages": [
+              "quote"
+            ]
+          },
+          {
+            "group": "Orders",
+            "pages": [
+              "orders"
+            ]
+          },
+          {
+            "group": "Limit Orders",
+            "pages": [
+              "delete-limit-orders",
+              "get-limt-orders",
+              "post-limit-orders",
+              "put-limit-orders",
+              "post-market-order",
+              "get-limit-order-status"
+            ]
+          },
+          {
+            "group": "Websockets",
+            "pages": [
+              "overview-1",
+              "connection-lifecycle",
+              "message-envelope",
+              "wire-format",
+              "channels",
+              "subscribing",
+              "channel-payloads",
+              "heartbeat-and-disconnection",
+              "errors",
+              "operational-limits",
+              "troubleshooting",
+              "example",
+              {
+                "group": "Tutorials",
+                "pages": [
+                  "maintain-a-live-order-book",
+                  "stream-a-live-trade-tape",
+                  "render-a-candlestick-from-kline",
+                  "track-a-wallets-orders-and-fills",
+                  "build-a-markets-dashboard"
+                ]
+              },
+              {
+                "group": "Client examples",
+                "pages": [
+                  "node-js-client",
+                  "python-client",
+                  "message-pack-node"
+                ]
+              },
+              "message-reference-index"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [],
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/SquareRoot-Labs"
+    }
+  },
+  "footer": {
+    "socials": {
+      "x": "https://x.com/ArcherExchange_",
+      "github": "https://github.com/SquareRoot-Labs"
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude"
+    ]
+  },
+  "logo": {
+    "light": "/images/ArcherWordmarkBlack.svg",
+    "dark": "/images/ArcherWordmarkWhite.svg"
+  },
+  "favicon": {
+    "light": "/images/ArcherLogomark.svg",
+    "dark": "/images/ArcherLogomark.svg"
+  }
+}

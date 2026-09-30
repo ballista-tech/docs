@@ -1,0 +1,57 @@
+---
+title: "Get Limit Order Status"
+api: "GET https://api-staging.archer.exchange/v1/order/status"
+description: "Get a limit order's status"
+---
+
+Resolves an order id against live on-chain state: open / gone / not\_found.
+
+<RequestExample>
+
+```bash Request
+curl -X 'GET' \
+  'https://api-staging.archer.exchange/v1/order/status?orderId=1' \
+  -H 'accept: application/json'
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200
+// Order status.
+{
+  "market": "string",
+  "orderId": "string",
+  "owner": "string",
+  "price": "string",
+  "priceTicks": 0,
+  "side": "buy",
+  "size": "string",
+  "status": "open"
+}
+```
+
+```json 400
+//	Invalid orderId.
+{
+  "error": "INVALID_PARAMS",
+  "message": "string"
+}
+```
+
+```json 401
+//Missing or invalid API key.
+{
+  "error": "INVALID_PARAMS",
+  "message": "string"
+}
+```
+
+</ResponseExample>
+
+#### Query Parameters
+
+<ParamField query="orderid" type="string" required>
+  Opaque order id returned at placement.
+</ParamField>

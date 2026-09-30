@@ -1,0 +1,65 @@
+---
+title: "MakerBook"
+---
+
+The biggest problem with previous on-chain order books was storing everything together in one big shared account on Solana. This design creates real pain points, specifically when implemented on Solana:
+
+- All makers looking to update quotes are competing to get write access to the order book state
+- This also increases priority fees and makes it expensive for everyone to update their quotes
+- The hot path of cancelling all orders and placing around a new mid price is computationally expensive
+
+Archer takes a completely different approach with **MakerBooks**. Instead of one shared book, each market maker gets their own dedicated on-chain order book - a small, sovereign account on Solana that only they control.
+
+This simple change brings huge benefits:
+
+- **No more contention** - You can update your quotes anytime, without competing against other makers or takers for a write lock.
+- **Near zero priority fees** - Since all makers have their own dedicated order book state, the priority fees are near zero and minimal because of zero contention. This significantly reduces the cost basis for market making and leads to tighter spreads.
+- **Efficient hot path** - Most market making operations include cancelling all existing orders and placing them around a new updated mid price. Archer's order book cancellations and updates are **200x more efficient** than previous solutions, enabling maker to pay minimal priority fee for getting their updates placed at the top of the block by leader nodes on Solana.
+
+## MakerBook
+
+A MakerBook is a dedicated order book for a market maker on Archer. One fundamental design decision about MakerBook is that the **order levels are stored as offsets defined from a particular mid price on that book**. For example, in a traditional CLOB, a maker placing orders around an implied mid price of 150.000 USD per SOL, the book will store makers' orders as:
+
+- Order 1: BUY 10 SOL at 145.000
+- Order 2: BUY 20 SOL at 140.000
+- Order 3: SELL 10 SOL at 155.000
+
+... and so on.
+
+On Archer, we store the same information a bit differently. The MakerBook of a maker has a mid price value stored that they can constantly update, and all the orders are simply an offset from that defined mid price. So, on a MakerBook, we'd store the above orders as below:
+
+- Mid price: 150.000
+- Bid levels: \[ (-5, 10),  (-10, 20)\]
+- Ask levels: \[ (\+5, 10) \]
+
+The order levels are stored as a tuple of **(offset, size)**. The offset can be mentioned in ticks and the size in base lots. Each MakerBook can have a maximum of 16 bid levels and 16 ask levels. More information about the units system (ticks, lots, atoms) can be found here.
+
+The biggest benefit of storing orders as offsets is that it enables makers to simply update the mid price on their maker book and all the bids and ask levels directly shift around the newer mid price. This brings down the computational costs for cancelling and updating orders on a MakerBook significantly. All orders can simply be cancelled by resetting the levels in O(1) and all the existing orders can be centered around a new mid price in O(1) complexity. The compute units consumed by common operations for an MM on Archer are as follows:
+
+| Operation | Compute units consumed | Efficiency gain over previous CLOBs |
+| :-- | :-- | :-- |
+| Cancel all orders | 180 | **205x** |
+| Update mid price | 212 | **180x** |
+| Update all levels | 4500 | **11x** |
+
+From an internal production grade market making system, we found that for active market makers, most of the hot path operations are simply updating the mid prices and shifting the book. Here are some live stats showing the frequency of most common operations for our system:
+
+<Frame>
+  ![Image](/images/image.png)
+</Frame>
+
+As shown, most of our operations is simply updating the mid prices and recentering the book. This may differ for you depending on your strategy and risk set up.
+
+Apart from hyper efficient order cancellations and updates, some more information on MakerBook that may be of interest for most market makers:
+
+### Delegation
+
+Each maker can optionally mention a delegate address, who can run maker operations on behalf of them. Delegates can do everything on a maker book (order cancellations, updates etc.) apart from depositing or withdrawing funds.
+
+### Auto-expiration of liquidity
+
+Market makers on Archer also have the optionality to automatically expire their liquidity if their oracle updates are remaining stale. For example, a market maker can mention an `expiry_in_slots = 2` and the aggregation logic during taker order matching will simply skip this MakerBook if the market maker hasn't updated their book within the last 2 slots.
+
+This helps market makers to stay protected if due to any reasons their book updates aren't landed repeatedly.
+
+Note: A MakerBook with expiration value = 0 is considered to have no expiration and will be aggregated through on all taker orders.

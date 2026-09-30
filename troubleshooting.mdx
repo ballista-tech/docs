@@ -1,0 +1,77 @@
+---
+title: "Troubleshooting"
+---
+
+### I connected and the socket is open, but I get nothing.
+
+The connection by itself doesn't push anything, the server only emits frames in
+
+response to subscriptions. Two quick checks:
+
+1. **Did you subscribe?** Send a `subscribe` op for at least one channel.
+
+2. **Is the channel quiet?** `user_orders` / `user_fills` / `trades` /
+
+   `limit_orders` only fire when something happens on chain. For a fast "pipe is
+
+   alive" check, subscribe to `mini_tickers`, it broadcasts every ~1.5s.
+
+```json
+{ "op": "subscribe", "channels": ["mini_tickers"] }
+```
+
+You should see a `mini_tickers` frame within ~2 seconds. If you don't, the
+
+connection isn't really subscribed and something else is wrong.
+
+### The connection keeps dropping after ~90 seconds.
+
+You're almost certainly not sending application-level pings. Remember the
+
+heartbeat is client-driven: the server never pings you, and it reaps
+
+connections that don't send `{"op":"ping","ts":...}` within
+
+`missed_pongs_limit` sweeps. Send a ping every ~30s. Note that responding to
+
+transport-level WebSocket pings is **not** enough, send the `op:"ping"`
+
+application message.
+
+### I set `set_format` to msgpack but I'm still getting JSON.
+
+The switch is applied per outbound frame, so this almost always means your
+
+client didn't flip its own decoder. After you send `{"op":"set_format","format":"msgpack"}`,
+
+every server frame, starting with the `format_set` confirmation, is
+
+MessagePack; decode it as such. If you switched mid-stream, a few frames that
+
+were already in flight may have gone out in the previous encoding, which is why
+
+it's best to switch right after connecting, before subscribing.
+
+### I got a `FORBIDDEN` on subscribe.
+
+The target market is on the server-side temporary block list. It's not a
+
+credential problem, the stream is public. Try another market; the blocked one
+
+may become available again without notice.
+
+### Frames stopped arriving mid-stream.
+
+Two likely causes:
+
+- You stopped sending pings and got reaped (see above).
+
+- Your outbound buffer overflowed (1000 frames) because your client wasn't
+
+  draining fast enough. The server drops frames for slow consumers and, after
+
+  500 consecutive drops, closes the connection entirely. If you're merely behind
+
+  (not yet evicted), issue a `resync` for each affected market to recover the
+
+  latest snapshot, and read faster.

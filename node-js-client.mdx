@@ -1,0 +1,201 @@
+---
+title: "NodeJS client"
+---
+
+### Production Node.js client (reconnect, backoff, heartbeat watchdog, resync)
+
+Covers everything a real integration needs: exponential backoff, a heartbeat
+
+watchdog that reconnects on missed pongs, automatic re-subscription (state does
+
+**not** persist across connections), respecting the server's `reconnect`
+
+advisory, and per-market orderbook gap → resync.
+
+```javascript
+import WebSocket from "ws"; // npm i ws
+
+const URL = "wss://api.archer.exchange/v1/stream";
+
+class ArcherStream {
+
+  constructor() {
+
+    this.ws = null;
+
+    this.marketSubs = new Set();   // markets to (re)subscribe orderbook/trades/ticker
+
+    this.walletSubs = new Set();   // wallets to (re)subscribe user_orders/user_fills
+
+    this.klineSubs = new Map();    // market -> resolution
+
+    this.globalSubs = new Set();   // e.g. "mini_tickers", "market_updates"
+
+    this.backoff = 500;            // ms, grows to a cap
+
+    this.pingTimer = null;
+
+    this.watchdog = null;
+
+    this.lastPong = 0;
+
+    this.books = new Map();        // market -> OrderBook (see §13.1)
+
+  }
+
+  // --- public subscription API (records intent, then sends if connected) ---
+
+  addMarket(m)  { this.marketSubs.add(m); this._send({ op: "subscribe", channels: ["orderbook","trades","ticker"], market: m }); }
+
+  addWallet(w)  { this.walletSubs.add(w); this._send({ op: "subscribe", channels: ["user_orders","user_fills"], user: w }); }
+
+  addKline(m,r) { this.klineSubs.set(m,r); this._send({ op: "subscribe_kline", resolution: r, market: m }); }
+
+  addGlobal(c)  { this.globalSubs.add(c); this._send({ op: "subscribe", channels: [c] }); }
+
+  connect() {
+
+    this.ws = new WebSocket(URL);
+
+    this.ws.on("open", () => {
+
+      this.backoff = 500;
+
+      this.lastPong = Date.now();
+
+      this._resubscribeAll();               // subscriptions don't persist — resend
+
+      this.pingTimer = setInterval(() => this._send({ op: "ping", ts: Date.now() }), 30_000);
+
+      // Watchdog: if we haven't seen a pong in ~100s, the link is dead — recycle it.
+
+      this.watchdog = setInterval(() => {
+
+        if (Date.now() - this.lastPong > 100_000) { console.warn("no pong — reconnecting"); this.ws.terminate(); }
+
+      }, 15_000);
+
+    });
+
+    this.ws.on("message", (buf) => this._onMessage(JSON.parse(buf.toString())));
+
+    this.ws.on("close", () => {
+
+      clearInterval(this.pingTimer);
+
+      clearInterval(this.watchdog);
+
+      const wait = this.backoff;
+
+      this.backoff = Math.min(this.backoff * 2, 30_000); // cap at 30s
+
+      console.warnsocket closed — reconnecting in ${wait}ms);
+
+      setTimeout(() => this.connect(), wait);
+
+    });
+
+    this.ws.on("error", (e) => console.warn("ws error:", e.message)); // 'close' handles reconnect
+
+  }
+
+  _resubscribeAll() {
+
+    for (const m of this.marketSubs) this._send({ op: "subscribe", channels: ["orderbook","trades","ticker"], market: m });
+
+    for (const w of this.walletSubs) this._send({ op: "subscribe", channels: ["user_orders","user_fills"], user: w });
+
+    for (const [m,r] of this.klineSubs) this._send({ op: "subscribe_kline", resolution: r, market: m });
+
+    for (const c of this.globalSubs) this._send({ op: "subscribe", channels: [c] });
+
+  }
+
+  _send(obj) {
+
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(obj));
+
+  }
+
+  _onMessage(msg) {
+
+    if (msg.op) {
+
+      switch (msg.op) {
+
+        case "pong":       this.lastPong = Date.now(); break;
+
+        case "reconnect":  // planned drain — close now, reconnect after the advised delay
+
+          console.info("server reconnect advisory:", msg.reason);
+
+          clearInterval(this.pingTimer); clearInterval(this.watchdog);
+
+          this.ws.close();
+
+          this.backoff = msg.delayMs ?? 5000;
+
+          break;
+
+        case "error":      console.warn("WS error:", msg.code, msg.message); break;
+
+        // "subscribed" / "subscribed_kline" / "format_set" — confirmations; usually no-op
+
+      }
+
+      return;
+
+    }
+
+    switch (msg.ch) {
+
+      case "orderbook": {
+
+        let book = this.books.get(msg.market);
+
+        if (!book) { book = new OrderBook(msg.market); this.books.set(msg.market, book); }
+
+        if (msg.type === "snapshot") book.onSnapshot(msg);
+
+        else book.onDelta(msg, (m) => this._send({ op: "resync", market: m }));
+
+        break;
+
+      }
+
+      case "trades":        /* msg.type "snapshot" (array) | "update" (one) */ break;
+
+      case "ticker":        /* msg.data 24h stats */ break;
+
+      case "kline":
+
+      case "mid_kline":     /* msg.data current bar; msg.resolution */ break;
+
+      case "user_orders":   /* msg.type placed|resized|canceled */ break;
+
+      case "user_fills":    /* msg.data one maker fill */ break;
+
+      case "limit_orders":  /* market-wide LO lifecycle; msg.maker */ break;
+
+      case "mini_tickers":  /* msg.data market -> compact ticker */ break;
+
+      case "market_updates":/* msg.type listed|status_changed|delisted */ break;
+
+    }
+
+  }
+
+}
+
+// Usage:
+
+const stream = new ArcherStream();
+
+stream.connect();
+
+stream.addMarket("5Ggx...");
+
+stream.addKline("5Ggx...", "1");
+
+stream.addGlobal("mini_tickers");
+```

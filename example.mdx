@@ -1,0 +1,79 @@
+---
+title: "Example"
+---
+
+```javascript
+// Browser-ish pseudocode. Production code should add reconnect / backoff.
+
+function connect() {
+  // No auth — just open the socket.
+  const ws = new WebSocket("wss://api.archer.exchange/v1/stream");
+
+  let pingTimer;
+
+  ws.onopen = () => {
+    // Subscribe to the channels you need.
+    ws.send(JSON.stringify({
+      op: "subscribe",
+      channels: ["orderbook", "trades", "ticker"],
+      market: MARKET_ADDRESS,
+    }));
+    ws.send(JSON.stringify({
+      op: "subscribe_kline",
+      resolution: "1",
+      market: MARKET_ADDRESS,
+    }));
+
+    // IMPORTANT: drive the heartbeat yourself — the server won't ping you.
+    pingTimer = setInterval(() => {
+      ws.send(JSON.stringify({ op: "ping", ts: Date.now() }));
+    }, 30_000);
+  };
+
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data); // stream is JSON (see §3)
+
+    // Operation responses are tagged by `op`; channel data by `ch`.
+    if (msg.op) {
+      if (msg.op === "pong") {
+        /* liveness confirmed */
+      } else if (msg.op === "reconnect") {
+        setTimeout(() => connect(), msg.delayMs ?? 5000);
+      } else if (msg.op === "error") {
+        console.warn("WS error:", msg.code, msg.message);
+      }
+      return;
+    }
+
+    switch (msg.ch) {
+      case "orderbook":
+        if (msg.type === "snapshot") applyOrderbookSnapshot(msg);
+        else applyOrderbookDelta(msg);   // size "0" means delete
+        break;
+      case "trades":
+        if (msg.type === "snapshot") appendTrades(msg.data);
+        else appendTrade(msg.data);
+        break;
+      case "ticker":
+        updateTicker(msg.data);
+        break;
+      case "kline":
+      case "mid_kline":
+        applyKline(msg.ch, msg.resolution, msg.data);
+        break;
+      case "mini_tickers":
+        updateMiniTickers(msg.data);
+        break;
+      case "market_updates":
+        handleMarketUpdate(msg.type, msg.data);
+        break;
+    }
+  };
+
+  ws.onclose = () => {
+    clearInterval(pingTimer);
+    // Reconnect with backoff. Subscriptions don't persist; re-send them.
+    setTimeout(() => connect(), 1000);
+  };
+}
+```

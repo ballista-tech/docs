@@ -1,0 +1,43 @@
+---
+title: "Build a markets dashboard"
+---
+
+Two global channels, no key required.
+
+### **Step 1 - subscribe**
+
+```json
+{ "op": "subscribe", "channels": ["mini_tickers", "market_updates"] }
+```
+
+(Ignore the `market` echoed back in the `subscribed` confirmation for these)
+
+### **Step 2 - render tickers**
+
+`mini_tickers` arrives ~every 1.5s as a single map of `market → { lastPrice, `
+
+`priceChangePercent24h, volume24h }`. Replace your view wholesale each frame.
+
+### **Step 3 - react to listings/status**
+
+`market_updates` frames:
+
+- `type: "listed"` — `data` is the full market object (same shape as
+
+  `GET /v1/markets/{address}`). Add the row.
+
+- `type: "status_changed"` — `data = { address, status, reason }` where
+
+  `status ∈ {"active","paused","closed"}`. Update the row's badge.
+
+- `type: "delisted"` — `data = { address }`. Remove the row.
+
+> A market **close** emits **two** frames: a `status_changed` with
+>
+> `status:"closed"` **and** a `delisted`. Listen to `delisted` if you only want
+>
+> the terminal "market is gone" signal; `status_changed` if you track the full
+>
+> active ↔ paused ↔ closed lifecycle. `delisted` fires only on the close
+>
+> transition.

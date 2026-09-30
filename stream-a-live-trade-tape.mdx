@@ -1,0 +1,51 @@
+---
+title: "Stream a live trade tape"
+---
+
+### **Step 1 - subscribe.**
+
+```text
+{ "op": "subscribe", "channels": ["trades"], "market": "5Ggx..." }
+```
+
+### **Step 2 - seed with the snapshot**
+
+`type: "snapshot"` carries `data` as an array of up to 50 trades, **newest first** — so `data[0]` 
+
+is the most recent.
+
+### **Step 3 - prepend live trades** 
+
+Each live trade is a `type: "update"` frame (not `"trade"`) with a single trade object in `data`. 
+
+Prepend it to keep the tape newest-first.
+
+```javascript
+const tape = [];
+
+function onTrades(msg) {
+
+  if (msg.type === "snapshot") {
+
+    tape.length = 0;
+
+    tape.push(...msg.data);            // already newest-first
+
+  } else {                             // type === "update"
+
+    tape.unshift(msg.data);            // prepend the new trade
+
+    tape.length = Math.min(tape.length, 100);
+
+  }
+
+}
+
+// Direction + price for a row:
+
+//   side is the taker side ("buy" | "sell").
+
+//   For a buy:  price = execInputSize / execOutputSize (quote in / base out)
+
+//   For a sell: price = execOutputSize / execInputSize
+```

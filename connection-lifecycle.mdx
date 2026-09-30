@@ -1,0 +1,34 @@
+---
+title: "Connection lifecycle"
+---
+
+Just open the socket. There is no auth handshake, no token mint, no header to set.
+
+```javascript
+// Works in every environment — browser, Node, native. No credentials.
+
+const ws = new WebSocket("wss://api.archer.exchange/v1/stream");
+```
+
+The connection stays open until you close it, the server drains:
+
+- for a restart
+- you're reaped for unresponsiveness
+
+Reconnecting is always safe and requires nothing but re-opening the socket and re-sending
+
+your subscriptions (subscriptions do **not** persist across connections).
+
+### Credentials are accepted but ignored (backward compatibility)
+
+For clients written against the old auth-required flow, the server still tolerates the following, but
+
+nothing is validated or consumed:
+
+- An `X-API-Key` header on the upgrade → ignored.
+
+- A `?token=...` query parameter (any value) → ignored.
+
+Both are no-ops. New integrations should send neither.
+
+> **Deprecated / vestigial.** `POST /v1/ws/auth` and the `wst_` single-use token machinery still exist for now, but the WS upgrade no longer checks or burns tokens. Do not build against them.

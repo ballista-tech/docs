@@ -1,0 +1,21 @@
+---
+title: "Why Archer"
+---
+
+## **Previous on-chain order books failed market makers**
+
+Solana has been home to many on-chain order book implementations but all of them have fallen short in enabling fully on-chain high frequency trading and enabling market makers to make markets profitably. Several problems with previous designs:
+
+#### **High cost of market making**
+
+Previous designs stored all market makers and taker orders in a single large account on Solana. Because of this, all market makers naturally competed to have their orders updated first and this resulted in priority-fee spikes, making it expensive to maintain quotes actively for everyone.
+
+#### **Inefficient data structures**
+
+Previous implementations used inefficient data structures to store user orders on-chain. Using data structures such as advanced trees makes sense in off-chain systems, but storage and compute on Solana is scarce and hence, if a market maker wants to simply cancel all their orders, the compute units consumed are extremely high.
+
+#### **Optimized for priority in the Solana scheduler**
+
+Solana transactions get higher priority from validators based on priority fees/CU consumed.
+
+On Archer, a typical market maker update costs ~300 CUs v/s a taker transaction costing 45,000 CUs. This 150x efficiency means that with the same priority fee budget, the market maker's update has 150x higher priority to be picked up by the leader node for block inclusion as compared to the taker orders.

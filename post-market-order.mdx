@@ -1,0 +1,68 @@
+---
+title: "Post Market Order"
+api: "POST https://api-staging.archer.exchange/v1/order/market"
+description: "Build a market (swap) order"
+---
+
+Alias of POST /v1/orders/build under the unified /order namespace.
+
+<RequestExample>
+
+```bash Request
+curl -X 'POST' \
+  'https://api-staging.archer.exchange/v1/order/market' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "market": "string",
+  "maxSlippageBps": 0,
+  "orderType": "sync",
+  "side": "buy",
+  "size": "string",
+  "swapMode": "MaxAmountIn",
+  "takerAddress": "string"
+}'
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200
+// Unsigned transaction built.
+{
+  "addressLookupTables": [
+    "string"
+  ],
+  "estimatedBaseSize": "string",
+  "estimatedFee": "string",
+  "estimatedPrice": "string",
+  "estimatedQuoteSize": "string",
+  "estimatedTotal": "string",
+  "expiresAt": 0,
+  "intentId": "string",
+  "makerBooksUsed": 0,
+  "orderType": "sync",
+  "swapMode": "MaxAmountIn",
+  "transaction": "string",
+  "worstPrice": "string"
+}
+```
+
+```json 400
+//	Invalid parameters / insufficient liquidity.
+{
+  "error": "INVALID_PARAMS",
+  "message": "string"
+}
+```
+
+```json 401
+//Missing or invalid API key.
+{
+  "error": "INVALID_PARAMS",
+  "message": "string"
+}
+```
+
+</ResponseExample>

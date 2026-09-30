@@ -1,0 +1,27 @@
+---
+title: "Overview"
+---
+
+Archer's on-chain order book is fundamentally different and specifically designed to meet what users want given the technical constraints of Solana. At a high level, these are the key components that together make up the whole exchange:
+
+### MakerBook
+
+Every market maker on Archer has their own dedicated order book account per market. So if a SOL USDC market has 10 market makers, each of them will have their 10 individual order book accounts that only they can write to.
+
+Unlike previous designs, there is no single unified order book account where all the orders are stored. **Archer's matching engine creates a unified aggregated order book at runtime only during trade execution.**
+
+### Core matching engine
+
+The default taker order type on Archer is a market order. When taker places a request for swap, Archer's program will aggregate all the liquidity across all MakerBooks on its market, arrange them in a sorted data structure and fill the users with best possible prices.
+
+Archer's matching engine works on price priority pro rata execution. Simply put, each taker gets filled against makers at best prices (highest bids for taker sell orders and lowest asks for taker buy orders). If a price level has multiple market makers, all the market makers get filled in a pro rated ratio of their available size.
+
+For example, if a taker is looking to purchase 200 units of SOL, and the ask level at price 100 has three market makers with:
+
+- Market maker A - 50 units
+- Market maker B - 100 units
+- Market maker C - 100 units
+
+Then, market maker A will get filled with 40 units, and market maker B and C will both be filled with 80 units each, giving the taker a total fill of 80 \+ 80 \+ 40 = 200 units. This is because market makers B and C both had twice as liquidity as market maker A, hence they get twice as many fills.
+
+All the taker orders are assumed to be market orders as they instantly are matched against aggregated available liquidity across MakerBooks.

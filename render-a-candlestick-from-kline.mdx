@@ -1,0 +1,67 @@
+---
+title: "Render a candlestick from kline"
+---
+
+`kline` streams OHLCV bars off the last-traded-price. Kline uses its own
+
+`subscribe_kline` op with a `resolution` (only **one** resolution per market per
+
+connection — re-subscribing replaces it).
+
+### **Step 1 - subscribe with a resolution.**
+
+```text
+{ "op": "subscribe_kline", "resolution": "1", "market": "5Ggx..." }
+```
+
+Valid resolutions: `"1"`, `"5"`, `"15"`, `"30"`, `"60"`, `"240"` (minutes),
+
+`"D"`, `"W"`, `"M"`. Anything else → `INVALID_RESOLUTION`.
+
+### **Step 2 - seed with the current-bar snapshot** (`type: "snapshot"`).
+
+### **Step 3 - update the live bar**
+
+Every `type: "update"` carries the current bar. The bar's `time` is **unix-seconds** (not ms) of 
+
+the bar open. A new bar is signaled implicitly: when an update arrives with a `time` greater 
+
+than your current bar's `time`, the previous bar has closed, commit it and start the new
+
+one. There is no explicit "bar closed" message.
+
+```javascript
+let bars = [];        // committed, closed bars
+
+let live = null;      // the currently open bar
+
+function onKline(msg) {
+
+  const bar = msg.data; // { time, open, high, low, close, volume } — all strings except time
+
+  if (!live || bar.time > live.time) {
+
+    if (live) bars.push(live);   // previous bar closed → commit it
+
+    live = bar;
+
+  } else {
+
+    live = bar;                  // same bar, updated OHLCV
+
+  }
+
+}
+```
+
+> **Historical bars** come from REST `GET /v1/klines`), not the stream — the WS
+>
+> `kline` channel only carries the current open bar and its updates. Load
+>
+> history via REST, then attach the stream for the live bar.
+>
+> `mid_kline` is identical but built from the book mid `(best_bid + best_ask) / 2`) instead 
+>
+> of trade prints, use `subscribe_mid_kline` and switch on `msg.ch === "mid_kline"`. The 
+>
+> two are independent streams; subscribe to whichever (or both) you need.

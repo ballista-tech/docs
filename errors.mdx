@@ -1,0 +1,44 @@
+---
+title: "Errors"
+---
+
+Errors flow as op-tagged frames with a code \+ human message:
+
+```text
+{ "op": "error", "code": "INVALID_MARKET", "message": "Market address is not valid or not active. (<value>)" }
+```
+
+| `code` | When |
+| --- | --- |
+| `INVALID_MARKET` | `market` field isn't a valid Solana address, or the market isn't in the active set |
+| `INVALID_RESOLUTION` | `resolution` isn't one of the supported values |
+| `ALREADY_SUBSCRIBED` | You're already subscribed to that channel for that market/wallet |
+| `NOT_SUBSCRIBED` | You tried to unsubscribe from a channel you weren't subscribed to |
+| `RATE_LIMITED` | You exceeded the per-connection inbound message rate |
+| `INVALID_MESSAGE` | The frame couldn't be parsed as a known message, an unknown channel name was used, or a required `market` / `user` field was missing |
+| `FORBIDDEN` | The target market is on a temporary server-side block list |
+| `SUBSCRIPTION_LIMIT` | This connection hit its per-connection subscription cap |
+
+Errors are sent per offending item, a `subscribe` with three channels where
+
+one is already-subscribed will get a confirmation for the two new ones plus one
+
+`ALREADY_SUBSCRIBED` error for the third. Errors are advisory and don't close
+
+the connection
+
+### Per-market kill switch (`FORBIDDEN`)
+
+The server keeps a hot-reloaded block list `config/blocked-markets.toml`). Any
+
+`subscribe`, `subscribe_kline`, `subscribe_mid_kline`, or `resync` targeting a
+
+blocked market is rejected with `FORBIDDEN` before it reaches the normal
+
+handlers. `unsubscribe` / `ping` / `set_format` are never gated, so you can
+
+always clean up an existing subscription. The list is operational and can change
+
+without notice; treat `FORBIDDEN` as "this market is temporarily unavailable,"
+
+not a permanent state.

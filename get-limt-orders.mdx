@@ -1,0 +1,77 @@
+---
+title: "List Open Orders"
+api: "GET https://api-staging.archer.exchange/v1/order/limit"
+description: "List a user's open limit orders"
+---
+
+Projects the owner's live on-chain maker book into limit orders. On-chain is the source of truth.
+
+<RequestExample>
+
+```bash Request
+curl -X 'GET' \
+  'https://api-staging.archer.exchange/v1/order/limit?user=Fg6PaFpoGXkYsidMpWxTWqLBeNmxVUFy8a3qFqkU2hwk' \
+  -H 'accept: application/json'
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200
+// Open orders.
+{
+  "orders": [
+    {
+      "market": "string",
+      "orderId": "string",
+      "owner": "string",
+      "price": "string",
+      "priceTicks": 0,
+      "side": "buy",
+      "size": "string",
+      "status": "string"
+    }
+  ]
+}
+```
+
+```json 400
+//Invalid parameters
+{
+  "error": "INVALID_PARAMS",
+  "message": "string"
+}
+```
+
+```json 401
+//Missing or invalid API key.
+{
+  "error": "INVALID_PARAMS",
+  "message": "string"
+}
+```
+
+</ResponseExample>
+
+#### Query Parameters
+
+<ParamField query="user" type="string" required>
+  Owner / maker wallet.
+
+  Example: `Fg6PaFpoGXkYsidMpWxTWqLBeNmxVUFy8a3qFqkU2hwk`
+</ParamField>
+
+<ParamField query="market" type="string">
+  Optional market filter. Omit to scan all markets.
+</ParamField>
+
+<ParamField query="side" type="string">
+  Available values: `buy`, `sell`
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter orders by status.
+
+  Phase 0 only tracks `open`.
+</ParamField>

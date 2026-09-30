@@ -1,0 +1,25 @@
+---
+title: "Fees"
+---
+
+All markets on Archer can have separate fee configurations for takers and makers depending on the market creators' preferences. All fees charged on Archer are always in units of quote tokens (mostly USDC).
+
+## Taker fee
+
+- Every market can have a defined taker fee that takers pay during swaps.
+- All the taker fees are done via hard settlement
+- The fee is defined in parts per million
+- The fee can be negative acting as taker rebates
+
+## Maker fee
+
+- Every market can have a defined maker fee that makers pay upon fills.
+- All the maker fees are done via soft settlement (balances written post fee charged)
+- The fee is defined in parts per million
+- The fee can be negative acting as maker rebates
+
+## Growth Mode
+
+Growth Mode is a temporary fee configuration designed to encourage liquidity and early participation in selected markets. While active, eligible markets receive reduced trading fees. Fee schedules may be updated as markets mature.
+
+**Current Markets - SOL/USDC:** **0% taker fee**

@@ -1,0 +1,13 @@
+---
+title: "Maker Registries"
+---
+
+The design of Archer spot exchange is such that there could potentially be hundreds of market makers with their MakerBooks per market, and for aggregating through all of them, the program requires passing all those MakerBook accounts in the swap instruction. The limitation on Solana today is maximum of 64 writable accounts per transaction with the use of Address Lookup Tables.
+
+Most of the aggregator integrations require Archer to implement an interface that can communicate with their routing engine. These interfaces will require to keep a note of all the MakerBook accounts for all markets which could be infeasible as some of these interfaces do not allow networking requests (hence getProgramAccounts is not possible). To solve this issue, we introduced Maker Registries.
+
+**Maker Registries** are registries that store and whitelist valid MakerBooks for every market on Archer. Every market on Archer has an associated MakerRegistry as a PDA where valid MakerBook addresses can be stored for that particular market. The aggregator integrations will simply fetch all the valid MakerBook addresses from the registry of every market, and use those MakerBook addresses with their swap instruction invocations. The downside of this is that if you are a market maker with MakerBook on a certain market, you will not be able to get the aggregator volume unless your MakerBook is a part of the registry.
+
+If you are a market maker looking to whitelist your MakerBook into its valid registry, please DM [https://t.me/mmdhrumil](https://t.me/mmdhrumil) on Telegram.
+
+**Note: Archer's own trading applications monitor every MakerBook for every market on Archer and hence you will always be aggregated through for all the order flow originating from our own application interfaces. The registries are only useful for order flow from composable integrations such as aggregators.**

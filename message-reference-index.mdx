@@ -1,0 +1,44 @@
+---
+title: "Message reference index"
+---
+
+### Client → server ops
+
+| `op` | Required fields | Optional | Purpose |
+| --- | --- | --- | --- |
+| `subscribe` | (`channels` \+ `market` or `user`) | `marketuser` per keying | Subscribe to market / wallet / global channels |
+| `unsubscribe` | (`channels` \+ `market` or `user`) |  | Remove subscriptions |
+| `subscribe_kline` | `resolution`, `market` |  | Subscribe to trade-price OHLCV (one resolution/market/conn) |
+| `unsubscribe_kline` | `resolution`, `market` |  | Remove kline sub (`resolution` required by shape, ignored) |
+| `subscribe_mid_kline` | `resolution`, `market` |  | Subscribe to mid-price OHLCV |
+| `unsubscribe_mid_kline` | `resolution`, `market` |  | Remove mid-kline sub |
+| `resync` | `market` |  | Re-send snapshots for all snapshot-bearing channels on that market |
+| `ping` | `ts` |  | Heartbeat (client-driven); echoed as `pong` |
+| `set_format` | `format` (`"json"` \\ `"msgpack"`) |  | Set outbound wire format for this connection |
+
+### Server → client op frames (tagged by `op`)
+
+| `op` | Fields | Meaning |
+| --- | --- | --- |
+| `subscribed` | `channels`, `market`? / `user`? | Confirms newly-subscribed channels |
+| `subscribed_kline` | `resolution`, `market` | Confirms kline sub (snapshot follows) |
+| `subscribed_mid_kline` | `resolution`, `market` | Confirms mid-kline sub (snapshot follows) |
+| `format_set` | `format` | Confirms wire-format switch (already in the new format) |
+| `pong` | `ts` | Echo of your ping's `ts` |
+| `reconnect` | `reason`, `delayMs` | Planned drain — reconnect after `delayMs` |
+| `error` | `code`, `message` | Advisory error, does not close the connection |
+
+### Server → client channel frames (tagged by `ch` \+ `type`)
+
+| `ch` | `type(s)` | Payload shape |
+| --- | --- | --- |
+| `orderbook` | `snapshot`, `delta` | `bidsasks` as `[price, size]`; `sequenceId`, `slot`, `timestamp` |
+| `trades` | `snapshot` (array), `update` (one) | `data`: trade object(s) |
+| `ticker` | `update` | `data`: 24h stats (on-subscribe frame is also `update`) |
+| `kline` | `snapshot`, `update` | `data`: `{time, open, high, low, close, volume}`; `resolution` |
+| `mid_kline` | `snapshot`, `update` | Same as `kline`, mid-price stream |
+| `user_orders` | `placed`, `resized`, `canceled` | `user`, `market`, `data`: LO payload |
+| `user_fills` | `fill` | `user`, `market`, `data`: fill payload (signed `makerFee`) |
+| `limit_orders` | `placed`, `resized`, `canceled` | `market`, `maker`, `data`: LO payload |
+| `mini_tickers` | `update` | `data`: `market → {lastPrice, priceChangePercent24h, volume24h}` |
+| `market_updates` | `listed`, `status_changed`, `delisted` | `data` varies by `type` |

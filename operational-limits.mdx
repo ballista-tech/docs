@@ -1,0 +1,48 @@
+---
+title: "Operational limits"
+---
+
+| Limit | Default | Notes |
+| --- | --- | --- |
+| Max inbound message size | 4096 bytes | Frames exceeding this close the connection |
+| Inbound rate limit | 20 messages/sec per connection | Excess returns `RATE_LIMITED`; no buffering |
+| Subscriptions per connection | 200 | Combined budget across markets \+ wallets \+ kline/mid\_kline; over-limit returns `SUBSCRIPTION_LIMIT` |
+| Outbound buffer | 1000 frames per connection | Frames are dropped when full (slow consumer) |
+| Slow-consumer eviction | 500 consecutive drops | A persistently full buffer (500 dropped frames in a row) closes the connection; any successful send resets the counter |
+| Ping sweep interval | 30 seconds | Server increments the missed-ping counter each sweep |
+| Missed pings before reap | 3 | ~90–120s of no client ping closes the connection |
+| Max connections per IP | 50 | Excess upgrades from one IP are rejected |
+
+### Subscription cap details
+
+Each connection may hold up to **200 subscription slots**. A slot is consumed by:
+
+- each distinct **market** you hold any of `orderbook` / `trades` / `ticker` /
+
+  `limit_orders` on (all of those on one market share a single slot),
+
+- each distinct market you hold a `kline` subscription on,
+
+- each distinct market you hold a `mid_kline` subscription on,
+
+- each distinct **wallet** you hold `user_orders` / `user_fills` on.
+
+Global channels `mini_tickers`, `market_updates`) are effectively free, they
+
+share a **single** internal slot between them no matter how many you hold, so
+
+they never meaningfully eat into your 200 (worst case, holding any global
+
+channel costs one slot total). When a **new** market/wallet would exceed the cap,
+
+the offending subscribe is rejected with `SUBSCRIPTION_LIMIT` and nothing new is
+
+added; existing subscriptions are unaffected. Unsubscribe from something to free
+
+a slot.
+
+With a 200-slot budget and per-market channels sharing one slot per market, a
+
+single connection can follow up to ~200 markets' full order-flow at once. If you need more, 
+
+open a second connection (subject to the per-IP cap of 50).

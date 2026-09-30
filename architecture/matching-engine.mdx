@@ -1,0 +1,47 @@
+---
+title: "Matching engine"
+---
+
+As seen in previous sections, all market makers on Archer have their own individual order book where their bids and asks are stored. To meet this design, Archer's matching engine handles trade execution as the following steps:
+
+## Aggregation
+
+First, the matching engine aggregates all the liquidity across all individual MakerBooks into a unified order book view at runtime. For taker buy orders, the matching engine aggregates all the ask orders from all MakerBooks, and for taker sell orders, the matching engine aggregates all the bid orders from all MakerBooks.
+
+## Sorted virtual book
+
+The aggregated bids/asks acts like a virtual unified order book at runtime that mimics the liquidity on a traditional CLOB. We arrange all the bids and asks in descending or ascending order respectively, so that we can match the takers against highest bids or lowest asks depending on the order type.
+
+## Price priority matching
+
+Once the program has all the sorted bids and asks, the taker orders are simply fulfilled at best prices. For example, assume that a taker is looking to purchase 200 units of SOL and the liquidity on aggregated asks side looks as follows:
+
+Price 100 - \[Maker A - 50 units\]
+
+Price 101 - \[Maker A - 75 units, Maker B - 75 units\]
+
+Price 102 - \[Maker A - 100 units, Maker B - 100 units, Maker C - 1000 units\]
+
+Since the taker only wants to purchase 200 units, the taker is filled simply by walking through the aggregated book as:
+
+- 50 units at price 100 against Maker A
+- 150 units at price 101 against Maker A and Maker B
+
+Hence, the taker gets to buy 200 units of SOL at an average price of 100.75.
+
+## Pro rated execution
+
+When the taker orders are filled, there are chances that multiple makers have liquidity at same price level. During that scenario, each maker is filled in a proportion to their relative liquidity on that price level. If a maker A has 40% of the liquidity on that price level, they get 40% of the total units filled at the price level.
+
+For example, assume a taker is looking to purchase 200 units of SOL and the liquidity on aggregated asks side looks as follows:
+
+Price 100 - \[Maker A - 100 units\]
+
+Price 101 - \[Maker A - 50 units, Maker B - 200 units\]
+
+The taker first receives 100 units at price 100 since that is the best ask. The next 100 units are filled as follows:
+
+- 20 units at price 101 against Maker A
+- 80 units at price 101 against Maker B
+
+This is because Maker B had 4x the liquidity available at the same price level, hence they get 4x the fills. One advantage of pro rated execution is that all makers are incentivized to quote higher depth so that they can get more fills.

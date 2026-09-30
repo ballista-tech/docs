@@ -1,0 +1,122 @@
+---
+title: "Get Markets"
+api: "GET https://api-staging.archer.exchange/v1/markets"
+description: "Returns a paginated, filterable list of all trading markets."
+---
+
+<RequestExample>
+
+```bash Request
+curl -X 'GET' \
+  'https://api.archer.exchange/v1/markets?quote=USDC&base=SOL&sort=address&order=asc&limit=50&offset=0' \
+  -H 'accept: application/json'
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200
+//Paginated list of markets.
+{
+  "limit": 0,
+  "markets": [
+    {
+      "address": "string",
+      "baseToken": {
+        "decimals": 9,
+        "logoUri": "string",
+        "mint": "string",
+        "name": "Solana",
+        "symbol": "SOL"
+      },
+      "createdAt": "string",
+      "limitOrderFeePpm": 0,
+      "makerRebatePpm": 0,
+      "minOrderSize": "string",
+      "mode": "string",
+      "quoteToken": {
+        "decimals": 9,
+        "logoUri": "string",
+        "mint": "string",
+        "name": "Solana",
+        "symbol": "SOL"
+      },
+      "status": "active",
+      "syncFeeMultiplier": 0,
+      "syncFeePpm": 0,
+      "takerFeePpm": 0,
+      "tickSize": "string",
+      "type": "continuous"
+    }
+  ],
+  "offset": 0,
+  "total": 0
+}
+```
+
+```json 429
+//Too many requests.
+{
+  "error": "RATE_LIMITED",
+  "message": "Too many requests. Please slow down."
+}
+```
+
+</ResponseExample>
+
+#### Query Parameters
+
+<ParamField query="type" type="string">
+  Filter by market type.
+
+  Available options: `continuous`, `async`, `hybrid`
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by market status.
+
+  Available options: `active`, `paused`
+</ParamField>
+
+<ParamField query="quote" type="string">
+  Filter by quote token symbol (case-insensitive).
+
+  Example: `USDC`
+</ParamField>
+
+<ParamField query="base" type="string">
+  Filter by base token symbol (case-insensitive).
+
+  Example: `SOL`
+</ParamField>
+
+<ParamField query="search" type="string">
+  Free-text search across token symbols, names, mints, and market addresses.
+</ParamField>
+
+<ParamField query="sort" default="address" type="string">
+  Sort field.
+
+  Available options: `address`, `baseSymbol`, `status`, `volume24h`
+</ParamField>
+
+<ParamField query="order" default="asc" type="string">
+  Sort direction.
+
+  Available options: `asc`, `desc`
+
+  Default value: `asc`
+</ParamField>
+
+<ParamField query="limit" default="50" type="integer">
+  Maximum number of results to return.
+
+  Default value: 50
+</ParamField>
+
+<ParamField query="offset" default="0" type="integer">
+  Number of results to skip (for pagination).
+
+  Default value: 0
+</ParamField>

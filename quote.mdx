@@ -1,0 +1,116 @@
+---
+title: "Get Quote"
+api: "GET https://api-staging.archer.exchange/v1/quote"
+description: "Get a price quote"
+---
+
+<Note>
+  Simulates a fill against the current order book and returns the estimated execution price, sizes, and totals. Use this to preview a trade before building a transaction.
+
+  The `swapMode` parameter controls how the `size` value is interpreted:
+
+  **Omitted (default):** `size` is always in base tokens.
+
+  `MaxAmountIn`**:** `size` is the maximum input amount (buy → quote tokens, sell → base tokens).
+
+  `MinAmountOut`**:** `size` is the minimum output amount (buy → base tokens, sell → quote tokens).
+</Note>
+
+<RequestExample>
+
+```bash Request
+curl -X 'GET' \
+  'https://api-staging.archer.exchange/v1/quote?market=5Ggx...abc&side=buy&size=1.5&slippageBps=50' \
+  -H 'accept: application/json'
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200
+//Quote with estimated execution details.
+{
+  "archerEstimatedBaseSize": "string",
+  "archerEstimatedQuoteSize": "string",
+  "archerEstimatedTotal": "string",
+  "archerPrice": "string",
+  "bpsDiff": "string",
+  "bpsLabel": "string",
+  "expiresAt": 0,
+  "jupiterEstimatedTotal": "string",
+  "jupiterPrice": "string"
+}
+```
+
+```json 400
+//Invalid request parameters.
+{
+  "error": "INVALID_PARAMS",
+  "message": "Invalid market address: xyz"
+}
+```
+
+```json 404
+// Market not found.
+{
+  "error": "MARKET_NOT_FOUND",
+  "message": "Market not found: 5Ggx...abc"
+}
+```
+
+```json 429
+// Too many requests.
+{
+  "error": "RATE_LIMITED",
+  "message": "Too many requests. Please slow down."
+}
+```
+
+```json 500
+// Internal server error.
+{
+  "error": "INTERNAL_ERROR",
+  "message": "Internal error: ..."
+}
+```
+
+</ResponseExample>
+
+#### Query Parameters
+
+<ParamField query="market" type="string" required>
+  Base58-encoded market address.
+</ParamField>
+
+<ParamField query="side" type="string" required>
+  Trade side.
+
+  Available options: `buy`, `sell`, `bid`, `ask`
+</ParamField>
+
+<ParamField query="size" type="string" required>
+  Amount to trade (decimal string). Interpretation depends on `swapMode`.
+
+  Example: `1.5`
+</ParamField>
+
+<ParamField query="slippageBps" type="integer" required>
+  Maximum allowed slippage in basis points (1 bps = 0.01%).
+
+  Example: `50`
+</ParamField>
+
+<ParamField query="swapMode" type="string">
+  Controls how `size` is interpreted. When omitted, `size` is always in base tokens.
+
+  Available options: `MaxAmountIn`, `MinAmountOut`
+</ParamField>
+
+<ParamField query="orderType" type="string">
+  For hybrid markets only. Ignored on non-hybrid markets.
+
+  Determines fee calculation: `sync` uses the higher sync fee, `intent` uses the base fee.
+
+  Available options: `sync`, `intent`
+</ParamField>

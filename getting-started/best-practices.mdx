@@ -1,0 +1,41 @@
+---
+title: "Best practices"
+---
+
+### Trading set up
+
+The best market making setup involves implementing an indexer that can maintain the live replica of your on-chain maker book and subscribe to its state via gRPC stream of block updates. This is so that you can be state-aware of your inventory and open orders. You can then design the backend system to intelligently choose what type of order update needs to be pushed.
+
+For example, in scenarios where no specific order levels need to change, and only mid price needs to be shifted, you can decide choose to send an update mid price instruction<br />over update book instruction, because of extremely high efficiency of the former instruction.
+
+### Efficient update\_book calls
+
+The update book instruction consumes compute units proportional to the number of levels to be modified. So updating all 32 max no. of order levels will cost ~4500 compute units whereas updating 1 order level (one of bid or ask) can only cost ~700 compute units.
+
+### Sorted bids and asks, no crossing allowed
+
+Bid levels must be strictly decreasing in price; ask levels must be strictly increasing. No crossing allowed (best bid \< best ask). The program will reject updates that violate this. Makers should validate this client-side before sending.
+
+### Built-in support for sequence numbers
+
+When actively market making on Solana, most market makers have ran into properly sequencing mid price updates because there's a possibility that a mid price at t0 lands or is included after the mid price update made at t1, where the difference in time could be just a few milliseconds. Archer provides a solution to this: Maker books provide a field called **last\_updated\_sequence\_number**, which is simply an incremented count of the maker book being updated. Every UpdateBook call requires a **sequence\_number** strictly greater than **last\_updated\_sequence\_number** on-chain. If a maker sends two updates and they land out of order, the stale one is rejected. Makers should use a monotonically increasing counter and be prepared to handle this rejection gracefully. This is critical for high-frequency updating.
+
+### Locked / free Balances
+
+The maker book tracks **quote\_locked** / **quote\_free** and **base\_locked** / **base\_free**. Locked = reserved for open orders, free = available for withdrawal. When you update mid price or book levels, the program recalculates locked amounts. Withdrawals can only draw from the free balance.
+
+### Sufficient balances requirements with update\_mid\_price
+
+The update mid price instruction lets maker to change the mid price and recenter all order levels around the newer price. But there's an edge case where the price change is drastically higher than the previous one, and the maker does not have sufficient liquidity to cover the bids.<br /><br />In that case, the program will reject those updates with errors. It is recommended to always have more quote token funds deposited in your maker book account than your bids sizes for avoiding this scenario. Asks are not affected from this for obvious reasons.
+
+### Market making delegation
+
+The delegation of a public key address over maker book can be set and unset by the maker owning the book. The delegation can only cancel all orders, update mid prices or order<br />levels, and update the sync spread ticks. They cannot deposit or withdraw the funds. Use the delegation carefully and at your own risk.
+
+### MakerBooks can be suspended
+
+Important: The market authority has the ability to suspend a market makers' book upon finding unethical and toxic behavior. All suspended maker books are skipped from matching<br />any taker orders.
+
+### Solana priority fees
+
+There are two use-cases for priority fees on Solana in general. One for block inclusion, and second for the position of your transaction in the block. Archer's maker books have zero contention so there's no priority fee that a maker has to pay from write contention at all. But paying minimal to some priority fees while sending updates still help because it increases the likelihood of block inclusion or bring your transaction update to top of the block much easier. The extreme efficiency of maker book operations make sure that you can get at top of the block with minimal priority fees in micro lamports per CU because the CU consumption itself is extremely low.

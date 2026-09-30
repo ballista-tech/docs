@@ -1,0 +1,55 @@
+---
+title: "MessagePack (Node)"
+---
+
+Opt a connection into MessagePack for lower bandwidth on high-volume channels.
+
+Two rules:
+
+**(a)** everything after your `set_format`, starting with the `format_set` confirmation itself, 
+
+arrives as binary MessagePack, so flip your decoder the moment you send the request
+
+**(b)** switch while the socket is quiet (right after connect, before subscribing). You can keep 
+
+**sending** plain JSON text, the server decodes text as JSON and binary as MessagePack
+
+independently of the outbound format.
+
+```javascript
+import WebSocket from "ws";                  // npm i ws
+
+import { decode } from "@msgpack/msgpack";   // npm i @msgpack/msgpack
+
+const ws = new WebSocket("wss://api.archer.exchange/v1/stream");
+
+let msgpack = false;
+
+ws.on("open", () => {
+
+  // Switch first, before any subscribe, while the connection is quiet.
+
+  ws.send(JSON.stringify({ op: "set_format", format: "msgpack" }));
+
+  msgpack = true; // every inbound frame from here on is binary msgpack
+
+  ws.send(JSON.stringify({ op: "subscribe", channels: ["orderbook"], market: "5Ggx..." }));
+
+  setInterval(() => ws.send(JSON.stringify({ op: "ping", ts: Date.now() })), 30_000);
+
+});
+
+ws.on("message", (data, isBinary) => {
+
+  // data is a Buffer. Decode as msgpack once switched; JSON before that.
+
+  const msg = (msgpack || isBinary) ? decode(data) : JSON.parse(data.toString());
+
+  if (msg.op === "format_set") console.log("format is now", msg.format); // arrives already msgpack-encoded
+
+  else if (msg.op) console.log("op:", msg.op);
+
+  else console.log("ch:", msg.ch, msg.type);
+
+});
+```

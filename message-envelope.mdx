@@ -1,0 +1,27 @@
+---
+title: "Message Envelope"
+---
+
+All client → server and server → client messages are single JSON objects (or MessagePack with the equivalent shape).
+
+There is no streaming framing on top of WebSocket frames — one logical message per frame.
+
+### Client → server: tagged by `op`
+
+```json
+{ "op": "subscribe", "channels": ["orderbook", "trades"], "market": "<market_pubkey>" }
+```
+
+### Server → client operation responses: tagged by `op`
+
+```json
+{ "op": "subscribed", "channels": ["orderbook", "trades"], "market": "<market_pubkey>" }
+```
+
+### Server → client channel data: tagged by `ch` \+ `type`
+
+```json
+{ "ch": "orderbook", "type": "snapshot", "market": "<market_pubkey>", "...": "..." }
+```
+
+Distinguish the two on the client by checking for `op` (op response) vs `ch` (channel data).

@@ -1,0 +1,35 @@
+---
+title: "Wire format"
+---
+
+Default is JSON. However, a connection can request MessagePack as follows:
+
+### Client → Server
+
+```json
+{ "op": "set_format", "format": "msgpack" }
+```
+
+### Server → Client
+
+```text
+{ "op": "format_set", "format": "msgpack" }
+```
+
+Valid values: `"json"`, `"msgpack"`.
+
+The switch takes effect immediately: the server reads the connection's current encoding per
+
+outbound frame, so every message after it processes your `set_format`, **including the**
+
+`format_set `**confirmation itself** is in the new format.
+
+Any frames that were already queued when you switched also go out in the new encoding, so
+
+switch while the connection is quiet (right after connect, before subscribing) and flip your
+
+client's decoder as soon as you send the request.
+
+Inbound is direction-independent: the server decodes any binary frame you send as
+
+MessagePack regardless of the current outbound setting.

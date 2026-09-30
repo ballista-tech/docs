@@ -1,0 +1,29 @@
+---
+title: "Channels"
+---
+
+Channels are **per-market** (subscribed with a `market` field), **per-wallet**
+
+(subscribed with a `user` field), or **global** (no key needed).
+
+## Per market channels
+
+| **Channel** | **Purpose** | **Snapshot on subscribe** | **Updates** |
+| --- | --- | --- | --- |
+| orderbook | Aggregated bid/ask levels across all maker books for this market | yes | deltas |
+| trades | Recent and live trades for this market | yes (last 50) | one message per trade |
+| ticker | 24h rolling stats for this market | yes | periodic (~1s) updates |
+| kline | OHLCV bars for the last-traded-price stream | yes (current bar) | bar updates while open \+ on close |
+| mid\_kline | OHLCV bars for the mid-price stream | yes (current bar) | bar updates while open \+ on close |
+| limit\_orders | LO lifecycle (place / resize / cancel) for all wallets on this market | no | one message per LO event |
+
+## Per wallet channels
+
+| **Channel** | **Purpose** | **Snapshot on subscribe** | **Updates** |
+| --- | --- | --- | --- |
+| user\_orders | LO lifecycle for the subscribed wallet only | no — read via `GET /v1/order/limit?user=...` | one message per place / resize / cancel |
+| user\_fills | Per-fill attribution for the subscribed wallet's resting orders | no — read via `GET /v1/order/fills?user=...` | one message per `MakerFillEvent` |
+
+> **No on-chain identity proof.** All LO data is public on-chain, so subscribing<br />to another wallet's `user_orders` / `user_fills` gives you exactly what you'd<br />see by reading the chain yourself. Useful for integrators showing a customer<br />their own data; not a privacy boundary.
+
+> `kline `**vs** `mid_kline`**.** `kline` is built from trade prints (last traded<br />price). `mid_kline` is built from the live mid of the aggregated book<br />(`(best_bid + best_ask) / 2`). They're separate streams; subscribe to<br />whichever is needed.

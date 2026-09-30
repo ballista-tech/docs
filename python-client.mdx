@@ -1,0 +1,49 @@
+---
+title: "Python client"
+---
+
+```python
+import asyncio, json, time
+import websockets  # pip install websockets
+
+URL = "wss://api.archer.exchange/v1/stream"
+MARKET = "5Ggx..."
+
+async def heartbeat(ws):
+    while True:
+        await ws.send(json.dumps({"op": "ping", "ts": int(time.time() * 1000)}))
+        await asyncio.sleep(30)
+
+async def run():
+    backoff = 0.5
+    while True:
+        try:
+            async with websockets.connect(URL, max_size=None) as ws:
+                backoff = 0.5
+                await ws.send(json.dumps({
+                    "op": "subscribe",
+                    "channels": ["orderbook", "trades", "ticker"],
+                    "market": MARKET,
+                }))
+                hb = asyncio.create_task(heartbeat(ws))
+                try:
+                    async for raw in ws:
+                        msg = json.loads(raw)
+                        if "op" in msg:
+                            if msg["op"] == "reconnect":
+                                print("reconnect advisory:", msg.get("reason"))
+                                await asyncio.sleep(msg.get("delayMs", 5000) / 1000)
+                                break
+                            elif msg["op"] == "error":
+                                print("error:", msg["code"], msg["message"])
+                        else:
+                            print(msg["ch"], msg.get("type"))
+                finally:
+                    hb.cancel()
+        except Exception as e:
+            print("disconnected:", e)
+        await asyncio.sleep(backoff)
+        backoff = min(backoff * 2, 30)  # exponential backoff, capped
+
+asyncio.run(run())
+```

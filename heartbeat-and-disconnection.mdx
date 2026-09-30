@@ -1,0 +1,55 @@
+---
+title: "Heartbeat and Disconnection"
+---
+
+Application-level liveness is **client-driven**. The server does **not** send an
+
+`{"op":"ping"}` — your client is responsible for sending pings; the server only
+
+answers them and reaps connections that go quiet.
+
+Send a ping periodically (every ~30s is a good default):
+
+```text
+{ "op": "ping", "ts": <unix_ms> }
+```
+
+The server echoes:
+
+```text
+{ "op": "pong", "ts": <same_ts> }
+```
+
+Each ping you send resets your connection's missed-ping counter. A background
+
+sweep runs every `ping_interval_secs` (default 30s) and increments that counter;
+
+if it reaches `missed_pongs_limit` (default 3) intervals without a single client
+
+ping, the server closes the connection. In practice that's **~90–120 seconds of**
+
+**silence** before you're reaped, so ping at least every ~60s to stay safely
+
+alive even if a frame is lost.
+
+> **Note:** transport-level WebSocket ping/pong frames (RFC 6455 control frames)
+>
+> are handled automatically by the server's framework and are _separate_ from
+>
+> this application-level heartbeat. Answering transport pings does not keep you
+>
+> alive here — you must send the `{"op":"ping"}` application message.
+
+The server may send a graceful reconnect signal during a planned shutdown or
+
+operational drain:
+
+```text
+{ "op": "reconnect", "reason": "server_restart", "delayMs": 5000 }
+```
+
+Wait the suggested delay (default 5000ms during drains), then reconnect to
+
+`/v1/stream` — no token or auth needed. Your client must re-subscribe;
+
+subscriptions don't persist across connections.

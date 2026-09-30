@@ -1,0 +1,81 @@
+---
+title: "Track a wallet's orders and fills"
+---
+
+`user_orders` and `user_fills` are **event-driven only — no snapshot**. Seed
+
+current state from REST, then attach the stream for live events.
+
+### **Step 1 - seed from REST**
+
+```text
+GET /v1/order/limit?user=<wallet>     # current resting limit orders
+
+GET /v1/order/fills?user=<wallet>     # recent fills
+```
+
+### **Step 2 - subscribe** (wallet-keyed → use `user`, not `market`)
+
+```json
+{ "op": "subscribe", "channels": ["user_orders", "user_fills"], "user": "<wallet>" }
+```
+
+### **Step 3 - apply lifecycle events.**
+
+`user_orders` frames have `type ∈ {"placed", "resized", "canceled"}`. Maintain an order 
+
+map keyed by `orderId`:
+
+```javascript
+const orders = new Map(); // orderId -> { side, price, size, sequenceNumber, ... }
+
+function onUserOrder(msg) {
+
+  const o = msg.data;
+
+  switch (msg.type) {
+
+    case "placed":   orders.set(o.orderId, o); break;
+
+    case "resized":  orders.set(o.orderId, { ...orders.get(o.orderId), ...o }); break;
+
+    case "canceled": orders.delete(o.orderId); break;
+
+  }
+
+}
+```
+
+### **Step 4 - attribute fills**
+
+Each `user_fills` frame is one maker fill against your resting order. `makerFee` is signed, a 
+
+leading `-` means a **rebate**. Join a fill to its placement via `sequenceNumber`: a fill at seq `S` 
+
+belongs to the latest `placedresized` for the same `(side, price)` with
+
+`sequenceNumber <= S`.
+
+```javascript
+function onUserFill(msg) {
+
+  const f = msg.data; // { orderId, side, price, baseFilled, quoteFilled, makerFee, taker, sequenceNumber, ... }
+
+  const isRebate = f.makerFee.startsWith("-");
+
+  // reduce the resting size on orders.get(f.orderId) by f.baseFilled, record the fill, etc.
+
+}
+```
+
+> **Privacy:** there's no identity proof, subscribing to any wallet returns
+>
+> exactly what you'd read from chain yourself. Use it to show a customer
+>
+> their own data; it is not a private feed.
+>
+> For every wallet's LO activity on a market instead of one wallet, subscribe
+>
+> to the market-keyed `limit_orders` channel, same payload, plus a top-level
+>
+> `maker`, minus the per-wallet filtering.

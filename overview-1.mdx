@@ -1,0 +1,125 @@
+---
+title: "Overview"
+---
+
+Archer websockets provides seamless access to real-time market data over a single WebSocket connection.
+
+- subscribe to per-market channels (orderbook, trades, ticker, kline, mid\_kline, limit\_orders)
+- per-wallet channels (user\_orders, user\_fills)
+- global channels (mini\_tickers, market\_updates)
+- receive snapshots on subscription where applicable
+
+**Base URL (production):** `wss://api.archer.exchange`
+
+**Upgrade path:** `GET /v1/stream`
+
+**Wire format:** JSON by default; MessagePack opt-in per connection
+
+> **The WebSocket stream is fully public.** No authentication is required to<br />connect or to subscribe to any channel.
+
+## Quick start
+
+The whole protocol in four steps: **connect → subscribe → keep-alive → read.**
+
+### **1 - Connect**
+
+No auth, no headers, no token.
+
+```text
+wss://api.archer.exchange/v1/stream
+```
+
+### **2. Subscribe**
+
+Subscribe to one or more channels. Market channels need a `market`
+
+```json
+{ "op": "subscribe", "channels": ["orderbook", "trades", "ticker"], "market": "DQo2K9DfMdckwS9bMuEwnksqEsLx4gzWYeMdAGUhpeWK" }
+```
+
+The server replies with a confirmation and (for snapshot-bearing channels) an
+
+immediate snapshot:
+
+```json
+{ "op": "subscribed", "channels": ["orderbook", "trades", "ticker"], "market": "DQo2..." }
+
+{ "ch": "orderbook", "type": "snapshot", "market": "DQo2...", "bids": [...], "asks": [...], "sequenceId": 4231, ... }
+
+{ "ch": "trades", "type": "snapshot", "market": "DQo2...", "data": [...] }
+
+{ "ch": "ticker", "type": "update", "market": "DQo2...", "data": { ... } }
+```
+
+### **3. Keep alive**
+
+The heartbeat is **client-driven** — the server never pings you. Send this at least every ~60s
+
+(30s recommended):
+
+```json
+{ "op": "ping", "ts": 1733100000000 }
+```
+
+and you'll get back
+
+```json
+{ "op": "pong", "ts": 1733100000000 }
+```
+
+The connections missing pings 3 times in a row will be disconnected.
+
+### **4. Read frames**
+
+- Everything with an `op` is a control/response frame
+- Everything with a `ch` is channel data
+
+## Examples
+
+### Terminal using wscat
+
+```shellscript
+npm i -g wscat
+
+wscat -c wss://api.archer.exchange/v1/stream
+```
+
+Then paste these lines one at a time:
+
+```shellscript
+{ "op": "subscribe", "channels": ["mini_tickers"] }
+
+{ "op": "ping", "ts": 1733100000000 }
+```
+
+`mini_tickers` broadcasts every ~1.5s, so it's the fastest way to confirm the
+
+pipe is live without needing a specific market.
+
+You should see a `{"ch":"mini_tickers",...}` frame within ~2 seconds.
+
+### NodeJS
+
+```javascript
+import WebSocket from "ws";
+
+const ws = new WebSocket("wss://api.archer.exchange/v1/stream");
+
+ws.on("open", () => {
+
+  ws.send(JSON.stringify({ op: "subscribe", channels: ["ticker"], market: "DQo2..." }));
+
+  setInterval(() => ws.send(JSON.stringify({ op: "ping", ts: Date.now() })), 30_000);
+
+});
+
+ws.on("message", (buf) => {
+
+  const msg = JSON.parse(buf.toString());
+
+  if (msg.op) console.log("op:", msg.op, msg.code ?? "");
+
+  else console.log("ch:", msg.ch, msg.type);
+
+});
+```

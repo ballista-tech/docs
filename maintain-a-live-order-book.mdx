@@ -1,0 +1,123 @@
+---
+title: "Maintain a live order book"
+---
+
+The `orderbook` channel gives you a **snapshot** on subscribe, then **deltas**.
+
+You keep two sorted maps (bids, asks) and apply deltas as upserts, treating a
+
+size of `"0"` as a delete. `sequenceId` lets you detect and recover from gaps.
+
+### **Step 1 - subscribe**
+
+```text
+{ "op": "subscribe", "channels": ["orderbook"], "market": "5Ggx..." }
+```
+
+### **Step 2 - seed from the snapshot**
+
+Bids arrive sorted descending by price, asks ascending. Each level is `[price, size]` (strings).
+
+### **Step 3 - apply deltas**
+
+Each delta entry is `[price, newSize]`. Upsert the level; if `newSize === "0"`, delete it. Levels 
+
+not mentioned are unchanged.
+
+### **Step 4 - detect gaps.**
+
+`sequenceId` is monotonic per market. If an incoming delta's `sequenceId` is greater than 
+
+`lastSeq + 1`, you missed something — issue a `resync` and rebuild from the fresh snapshot.
+
+```javascript
+class OrderBook {
+
+  constructor(market) {
+
+    this.market = market;
+
+    this.bids = new Map(); // price(str) -> size(str)
+
+    this.asks = new Map();
+
+    this.seq = null;
+
+  }
+
+  onSnapshot(msg) {
+
+    this.bids = new Map(msg.bids);
+
+    this.asks = new Map(msg.asks);
+
+    this.seq = msg.sequenceId;
+
+  }
+
+  // Returns true if a resync is needed (gap detected).
+
+  onDelta(msg, requestResync) {
+
+    if (this.seq !== null && msg.sequenceId > this.seq + 1) {
+
+      requestResync(this.market); // gap — recover
+
+      return true;
+
+    }
+
+    for (const [price, size] of msg.bids) {
+
+      if (size === "0") this.bids.delete(price);
+
+      else this.bids.set(price, size);
+
+    }
+
+    for (const [price, size] of msg.asks) {
+
+      if (size === "0") this.asks.delete(price);
+
+      else this.asks.set(price, size);
+
+    }
+
+    this.seq = msg.sequenceId;
+
+    return false;
+
+  }
+
+  // Best levels — re-sort on read (or keep a sorted structure for hot paths).
+
+  bestBid() {
+
+    return [...this.bids.keys()].sort((a, b) => parseFloat(b) - parseFloat(a))[0];
+
+  }
+
+  bestAsk() {
+
+    return [...this.asks.keys()].sort((a, b) => parseFloat(a) - parseFloat(b))[0];
+
+  }
+
+}
+```
+
+```json
+const book = new OrderBook(MARKET);
+
+const requestResync = (m) => ws.send(JSON.stringify({ op: "resync", market: m }));
+
+// in ws.onmessage, for msg.ch === "orderbook":
+
+if (msg.type === "snapshot") book.onSnapshot(msg);
+
+else book.onDelta(msg, requestResync);
+```
+
+> **Precision:** prices and sizes are decimal strings to preserve on-chain precision. Use them as 
+>
+> map keys verbatim; only parse to float for display / sorting, never for equality or storage.

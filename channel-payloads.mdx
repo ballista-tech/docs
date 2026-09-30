@@ -1,0 +1,466 @@
+---
+title: "Channel payloads"
+---
+
+All numeric values are returned as decimal strings to preserve precision.
+
+Timestamps are unix-ms unless noted. Slot is Solana slot number. Pubkeys are
+
+base58 strings.
+
+### Orderbook
+
+**Snapshot** (sent on subscribe and on resync)
+
+```json
+{
+
+  "ch": "orderbook",
+
+  "type": "snapshot",
+
+  "market": "DQo2...",
+
+  "timestamp": 1733100000123,
+
+  "slot": 305123456,
+
+  "sequenceId": 4231,
+
+  "bids": [["150.25", "1.5"], ["150.20", "3.0"]],
+
+  "asks": [["150.30", "2.0"], ["150.35", "0.5"]]
+
+}
+```
+
+Bids are sorted descending by price; asks ascending. Each level is `[price, size]` (size in 
+
+base tokens).
+
+**Delta** (sent when the aggregated book changes):
+
+```json
+{
+
+  "ch": "orderbook",
+
+  "type": "delta",
+
+  "market": "DQo2...",
+
+  "timestamp": 1733100000456,
+
+  "slot": 305123457,
+
+  "sequenceId": 4232,
+
+  "bids": [["150.20", "2.5"], ["150.10", "0"]],
+
+  "asks": [["150.35", "0"]]
+
+}
+```
+
+Each delta entry is `[price, new_size]`. **A** `new_size `**of** `"0" `**means the level is gone**, apply 
+
+it as a delete. Levels not present in the delta are unchanged.
+
+`sequenceId` is monotonic per market. If your client sees a gap (current `sequenceId` \> last \+ 
+
+1), call `resync` to recover.
+
+### Trades
+
+**Snapshot** (most recent 50 trades, **newest first**):
+
+```json
+{
+
+  "ch": "trades",
+
+  "type": "snapshot",
+
+  "market": "DQo2...",
+
+  "data": [
+
+    { "id": "...", "tradeType": "sync", "market": "5Ggx...", "side": "buy",
+
+      "inputMint": "...", "outputMint": "...",
+
+      "execInputSize": "150.25", "execOutputSize": "1.0",
+
+      "fee": "0", "userWallet": "...",
+
+      "slot": 305123440, "timestamp": 1733099000000, "txSignature": "..." }
+
+  ]
+
+}
+```
+
+The snapshot array is ordered **most-recent-first** `data[0]` is the newest trade). Up to 50 
+
+trades are returned `DEFAULT_TRADES_LIMIT`).
+
+**Live trade** (one per fill) — note `type` is `"update"`, \*\*not\*\* `"trade"`:
+
+```json
+{
+
+  "ch": "trades",
+
+  "type": "update",
+
+  "market": "5Ggx...",
+
+  "data": { /* same shape as one element of the snapshot array */ }
+
+}
+```
+
+**Full** `data `**field reference** (one trade). Every value is a decimal string unless noted:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | string | Stable per-trade id (the fill UUID) |
+| `tradeType` | string | always `"sync"` |
+| `market` | string (pubkey) | Market address |
+| `side` | string | `"buy"` or `"sell"` (taker side) |
+| `inputMint` / `outputMint` | string (pubkey) | Mints swapped |
+| `execInputSize` / `execOutputSize` | decimal string | Executed sizes (human units) |
+| `fee` | decimal string | Taker (protocol) fee for this trade, in quote-token units |
+| `userWallet` | string (pubkey) | Taker wallet |
+| `slot` | number | Solana slot of execution |
+| `timestamp` | number | unix-ms of execution |
+| `txSignature` | string | Execution transaction signature |
+| `integratorFeeWallet` | string (pubkey) | Wallet that received the integrator (referral) fee |
+| `integratorFeeAtoms` | string | Integrator fee amount, in atoms (smallest units) |
+
+> **Fees.** Two distinct fees ride on a trade:
+>
+> - `fee` — the **taker (protocol) fee**, in quote-token units. It's derived from
+>
+> the market's `taker_fee_ppm` `fee = quote_notional × ppm / 1_000_000`), using
+>
+> the multiplied sync fee on hybrid markets. The **same value appears on both**
+>
+> **the snapshot and the live** `update` for a trade.
+>
+> - `integratorFeeAtoms` — a separate **integrator/referral fee**, in atoms, paid
+>
+> to `integratorFeeWallet`. Independent of the protocol `fee`.
+
+### Ticker
+
+Pushed on subscribe and at the ticker engine's update cadence (~1 second by default, 
+
+`ticker.update_interval_ms`). Unlike `orderbook` and `trades`, the ticker has \*\*no distinct 
+
+snapshot frame\*\* — the on-subscribe push is an ordinary `type: "update"` frame identical to 
+
+the periodic ones. Treat the first one you receive as your snapshot.
+
+```json
+{
+
+  "ch": "ticker",
+
+  "type": "update",
+
+  "market": "DQo2...",
+
+  "data": {
+
+    "lastPrice": "150.25",
+
+    "priceChange24h": "2.10",
+
+    "priceChangePercent24h": "1.4",
+
+    "high24h": "151.00",
+
+    "low24h": "147.80",
+
+    "volume24h": "1234567.89",
+
+    "baseVolume24h": "8234.50",
+
+    "timestamp": 1733100000000
+
+  }
+
+}
+
+```
+
+`volume24h` is quote-denominated; `baseVolume24h` is base-denominated.
+
+### Kline / mid\_kline
+
+**Snapshot** (current open bar):
+
+```json
+{
+
+  "ch": "kline",
+
+  "type": "snapshot",
+
+  "market": "5Ggx...",
+
+  "resolution": "1",
+
+  "data": {
+
+    "time": 1733100000,
+
+    "open": "150.20",
+
+    "high": "150.30",
+
+    "low": "150.18",
+
+    "close": "150.25",
+
+    "volume": "12.50"
+
+  }
+
+}
+```
+
+**Update** (sent whenever the current bar changes, and when it closes):
+
+```json
+{
+
+  "ch": "kline",
+
+  "type": "update",
+
+  "market": "5Ggx...",
+
+  "resolution": "1",
+
+  "data": { "time": 1733100000, "open": "150.20", "...": "..." }
+
+}
+```
+
+`time` is the unix-seconds (not ms) of the bar's open. The same shape is used for 
+
+`mid_kline` with `"ch": "mid_kline"`. Bar close is signaled by a new bar opening — there's 
+
+no explicit "bar closed" message.
+
+### user\_orders / limit\_orders (LO lifecycle)
+
+Both channels emit the same payload shape — `user_orders` is filtered to the subscribed 
+
+wallet and carries a top-level `user`; `limit_orders` is unfiltered for the market and carries a 
+
+top-level `maker` instead.
+
+`type` is one of `"placed"`, `"resized"`, `"canceled"`.
+
+```json
+{
+
+  "ch": "user_orders",
+
+  "type": "placed",
+
+  "user": "<wallet>",
+
+  "market": "<market>",
+
+  "data": {
+
+    "orderId": "...",
+
+    "side": "buy",
+
+    "price": "150.25",
+
+    "size": "1.5",
+
+    "priceTicks": 15025,
+
+    "sequenceNumber": 12,
+
+    "slot": 305123456,
+
+    "timestamp": 1733100000000,
+
+    "txSignature": "..."
+
+  }
+
+}
+```
+
+`data `**field reference** (`LoEventPayload`)
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `orderId` | string | Opaque order id (`OrderRef{market, maker, side, price_ticks}` encoded); joins to `user_fills` |
+| `side` | string | `"buy"` (bid) or `"sell"` (ask) |
+| `price` | decimal string | Human price, derived from `priceTicks` and the market's tick params |
+| `size` | decimal string | Current resting size (human base units). For `canceled`, echoes the pre-cancel size |
+| `priceTicks` | number | Absolute price in ticks (the order-id key) |
+| `prevSize` | decimal string | **Present only on** `resized `**and** `canceled` — size before the mutation |
+| `newSize` | decimal string | **Present only on** `resized` — size after the mutation |
+| `sequenceNumber` | number | Maker book's post-mutation `last_updated_sequence_number` (fill join key) |
+| `slot` | number | Solana slot |
+| `timestamp` | number | unix-ms |
+| `txSignature` | string | Transaction signature |
+
+For `"type": "resized"`, `data` includes both `prevSize` and `newSize`. For
+
+`"type": "canceled"`, `data` includes `prevSize`, and `data.size` echoes the
+
+size that was on chain pre-cancel `newSize` is absent). For `"type": "placed"`,
+
+neither `prevSize` nor `newSize` is present.
+
+`limit_orders` is identical but replaces `"user"` with `"maker"`:
+
+```json
+{
+
+  "ch": "limit_orders",
+
+  "type": "placed",
+
+  "market": "<market>",
+
+  "maker": "<wallet>",
+
+  "data": { /* same LoEventPayload shape */ }
+
+}
+```
+
+`sequenceNumber` is the maker book's `last_updated_sequence_number` after the
+
+mutation — it's the join key for matching fills to a specific placement (see
+
+`user_fills` below).
+
+### user\_fills
+
+One message per `MakerFillEvent` where the maker is the subscribed wallet.
+
+```json
+{
+
+  "ch": "user_fills",
+
+  "type": "fill",
+
+  "user": "<wallet>",
+
+  "market": "<market>",
+
+  "data": {
+
+    "orderId": "...",
+
+    "side": "buy",
+
+    "price": "150.25",
+
+    "baseFilled": "0.5",
+
+    "quoteFilled": "75.125",
+
+    "makerFee": "0.0375",
+
+    "taker": "<taker_wallet>",
+
+    "priceTicks": 15025,
+
+    "sequenceNumber": 12,
+
+    "slot": 305123456,
+
+    "timestamp": 1733100000000,
+
+    "txSignature": "..."
+
+  }
+
+}
+```
+
+`makerFee` is signed — a leading `-` indicates a rebate. `sequenceNumber`
+
+matches the placement event's `sequenceNumber` for the level that was hit: a
+
+fill at seq `S` belongs to the latest `placed` / `resized` for the same
+
+`(side, price)` with `sequenceNumber <= S`.
+
+### mini\_tickers
+
+Pushed periodically (~1.5s) as a single map of every market's compact ticker:
+
+```json
+{
+
+  "ch": "mini_tickers",
+
+  "type": "update",
+
+  "data": {
+
+    "5Ggx...": { "lastPrice": "150.25", "priceChangePercent24h": "1.4", "volume24h": "1234567.89" },
+
+    "9Aab...": { "lastPrice": "0.045", "priceChangePercent24h": "-3.2", "volume24h": "50000.00" }
+
+  }
+
+}
+```
+
+### market\_updates
+
+Three frame types, all on the `market_updates` channel. Note the `type` values
+
+are `"listed"` / `"status_changed"` / `"delisted"` (not prefixed with
+
+`market_`):
+
+```text
+{ "ch": "market_updates", "type": "listed",
+
+  "data": { /* full MarketResponse shape — same as GET /v1/markets/{address} */ } }
+```
+
+```text
+{ "ch": "market_updates", "type": "status_changed",
+
+  "data": { "address": "5Ggx...", "status": "paused", "reason": null } }
+```
+
+```text
+{ "ch": "market_updates", "type": "delisted",
+
+  "data": { "address": "5Ggx..." } }
+```
+
+`status` values match the REST API: `"active"`, `"paused"`, `"closed"`
+
+> **A market close emits two frames.** When a market transitions to `"closed"`,
+>
+> the server sends both a `status_changed` (with `status: "closed"`) **and** a
+>
+> `delisted` frame. Watch `delisted` if you just want the terminal
+>
+> "market is gone" signal; watch `status_changed` for the full active ↔ paused ↔
+>
+> closed lifecycle. `delisted` fires only on the close transition — not for
+>
+> `active` or `paused`.
