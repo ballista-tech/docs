@@ -57,10 +57,6 @@
         "pages": [
           "overview",
           {
-            "group": "API Reference",
-            "openapi": "https://api.archer.exchange/v1/docs/openapi.json"
-          },
-          {
             "group": "Websockets",
             "pages": [
               "overview-1",
@@ -97,6 +93,10 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "API Reference",
+        "openapi": "https://api.archer.exchange/v1/docs/openapi.json"
       }
     ]
   },
