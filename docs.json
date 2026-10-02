@@ -53,45 +53,39 @@
         ]
       },
       {
-        "tab": "Archer Trading API",
+        "tab": "Archer Websockets",
         "pages": [
-          "overview",
+          "overview-1",
+          "connection-lifecycle",
+          "message-envelope",
+          "wire-format",
+          "channels",
+          "subscribing",
+          "channel-payloads",
+          "heartbeat-and-disconnection",
+          "errors",
+          "operational-limits",
+          "troubleshooting",
+          "example",
           {
-            "group": "Websockets",
+            "group": "Tutorials",
             "pages": [
-              "overview-1",
-              "connection-lifecycle",
-              "message-envelope",
-              "wire-format",
-              "channels",
-              "subscribing",
-              "channel-payloads",
-              "heartbeat-and-disconnection",
-              "errors",
-              "operational-limits",
-              "troubleshooting",
-              "example",
-              {
-                "group": "Tutorials",
-                "pages": [
-                  "maintain-a-live-order-book",
-                  "stream-a-live-trade-tape",
-                  "render-a-candlestick-from-kline",
-                  "track-a-wallets-orders-and-fills",
-                  "build-a-markets-dashboard"
-                ]
-              },
-              {
-                "group": "Client examples",
-                "pages": [
-                  "node-js-client",
-                  "python-client",
-                  "message-pack-node"
-                ]
-              },
-              "message-reference-index"
+              "maintain-a-live-order-book",
+              "stream-a-live-trade-tape",
+              "render-a-candlestick-from-kline",
+              "track-a-wallets-orders-and-fills",
+              "build-a-markets-dashboard"
             ]
-          }
+          },
+          {
+            "group": "Client examples",
+            "pages": [
+              "node-js-client",
+              "python-client",
+              "message-pack-node"
+            ]
+          },
+          "message-reference-index"
         ]
       },
       {
