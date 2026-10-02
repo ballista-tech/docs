@@ -1,55 +1,56 @@
-# Mintlify Starter Kit
+# Archer Exchange docs
 
-Use the starter kit to get your docs deployed and ready to customize.
+Source for [docs.archer.exchange](https://docs.archer.exchange), built with
+[Mintlify](https://mintlify.com). Mintlify deploys on every push to `main`.
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+## The API reference is generated. Do not write endpoint pages by hand
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
+The **API Reference** tab is generated from `openapi.json` in this repo:
 
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
+```json
+{ "tab": "API Reference", "openapi": "openapi.json" }
+```
 
-## AI-assisted writing
+`openapi.json` is a copy of the spec the production API serves at
+`https://api.archer.exchange/v1/docs/openapi.json`. To change how an endpoint is
+documented, edit its summary, description or schema in
+`archer-backend/crates/rest-api/static/openapi.json`. That repo's CI checks the
+spec against the router, so an endpoint cannot ship undocumented.
 
-Set up your AI coding tool to work with Mintlify:
+After a backend deploy that changed the spec:
 
 ```bash
-npx skills add https://mintlify.com/docs
+./sync-spec.sh        # fetch from production, validate, replace openapi.json
+git add openapi.json && git commit -m "Sync API spec" && git push
 ```
 
-This command installs Mintlify's documentation skill for your configured AI tools like Claude Code, Cursor, Windsurf, and others. The skill includes component reference, writing standards, and workflow guidance.
+## If the site stops updating
 
-See the [AI tools guides](/ai-tools) for tool-specific setup.
+Mintlify refuses to build with an invalid `openapi.json`, keeps serving the
+previous version of the whole site, and says only "Failed to fetch OpenAPI file"
+on the commit's check run. That message is misleading: it also means "fetched
+it, and it failed validation". Check before pushing:
 
-## Development
-
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
-
+```bash
+npx mint validate     # the same build check Mintlify runs
 ```
+
+Deployment status for a commit is on its GitHub check run, "Mintlify
+Deployment".
+
+## What is written by hand
+
+Everything OpenAPI cannot express:
+
+| Section | Contents |
+|---|---|
+| `overview/`, `architecture/` | What Archer is, MakerBooks, the matching engine, fees, maker registries |
+| `getting-started/` | Starter template, best practices |
+| Trading API pages (repo root) | The WebSocket API, tutorials and client examples. OpenAPI cannot describe WebSockets, so this is the only place it is documented |
+
+## Local preview
+
+```bash
 npm i -g mint
+mint dev              # http://localhost:3000
 ```
-
-Run the following command at the root of your documentation, where your `docs.json` is located:
-
-```
-mint dev
-```
-
-View your local preview at `http://localhost:3000`.
-
-## Publishing changes
-
-Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
-
-## Need help?
-
-### Troubleshooting
-
-- If your dev environment isn't running: Run `mint update` to ensure you have the most recent version of the CLI.
-- If a page loads as a 404: Make sure you are running in a folder with a valid `docs.json`.
-
-### Resources
-- [Mintlify documentation](https://mintlify.com/docs)

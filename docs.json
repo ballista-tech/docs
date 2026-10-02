@@ -96,7 +96,7 @@
       },
       {
         "tab": "API Reference",
-        "openapi": "https://api.archer.exchange/v1/docs/openapi.json"
+        "openapi": "openapi.json"
       }
     ]
   },
