@@ -55,7 +55,7 @@
       {
         "tab": "Archer Websockets",
         "pages": [
-          "overview-1",
+          "websockets-overview",
           "connection-lifecycle",
           "message-envelope",
           "wire-format",
