@@ -18,4 +18,4 @@ Previous implementations used inefficient data structures to store user orders o
 
 Solana transactions get higher priority from validators based on priority fees/CU consumed.
 
-On Archer, a typical market maker update costs ~300 CUs v/s a taker transaction costing 45,000 CUs. This 150x efficiency means that with the same priority fee budget, the market maker's update has 150x higher priority to be picked up by the leader node for block inclusion as compared to the taker orders.
+On Archer, a typical market maker update costs ~80 CUs v/s a taker transaction costing 100K CUs. This 1000x efficiency means that with the same priority fee budget, the market maker's update has 1000x higher priority to be picked up by the leader node for block inclusion as compared to the taker orders.
