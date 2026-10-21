@@ -68,6 +68,12 @@
           "troubleshooting",
           "example",
           {
+            "group": "Transaction relay",
+            "pages": [
+              "transaction-status-feed"
+            ]
+          },
+          {
             "group": "Tutorials",
             "pages": [
               "maintain-a-live-order-book",

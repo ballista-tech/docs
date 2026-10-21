@@ -1,0 +1,223 @@
+---
+title: "Transaction status feed"
+description: "Live landing updates for transactions you send through the Archer transaction relay."
+---
+
+The transaction relay (`https://send.archer.exchange`) lands the signed transactions you send it. This feed pushes each transaction's status as it changes, so you don't have to poll `GET /v1/send/{signature}`.
+
+- one per-wallet channel, `tx_status`
+- an update when the relay accepts a transaction, and again when it lands, fails or expires
+- the same protocol as the market-data stream: `op` control frames, `ch` data frames
+
+**Base URL (production):** `wss://send.archer.exchange`
+
+**Upgrade path:** `GET /v1/ws`
+
+**Wire format:** JSON
+
+> **No authentication is required.** You don't need an API key to connect or to subscribe. Sending transactions to the relay still needs one.
+
+## Quick start
+
+### **1. Connect**
+
+```text
+wss://send.archer.exchange/v1/ws
+```
+
+### **2. Subscribe to a wallet**
+
+Subscribe with the wallet that signs your transactions, usually your maker or fee-payer wallet.
+
+```json
+{ "op": "subscribe", "channels": ["tx_status"], "user": "<wallet>" }
+```
+
+The server confirms:
+
+```json
+{ "op": "subscribed", "channels": ["tx_status"], "user": "<wallet>" }
+```
+
+It then sends the current status of every pending transaction for that wallet, so you don't miss one sent just before you subscribed.
+
+### **3. Send transactions as usual**
+
+```text
+POST https://send.archer.exchange/v1/send
+```
+
+### **4. Read updates**
+
+```json
+{
+  "ch": "tx_status",
+  "type": "update",
+  "user": "<wallet>",
+  "data": {
+    "signature": "5r5Zb67VfBe3cGp27z53XVcQbF7oTmf9N4q2WoqDxWL716mSq8uttuZeABVksZRQPa28fTfJvDYiDcCYN685bDRr",
+    "status": "landed",
+    "commitment": "processed",
+    "slot": 431573371,
+    "err": null,
+    "receivedAt": 1791190083798,
+    "landedAt": 1791190084200,
+    "landingMs": 402,
+    "sends": 1,
+    "rpcError": null,
+    "reason": null
+  }
+}
+```
+
+`data` is exactly the body of `GET /v1/send/{signature}`. Code that already reads that response can read these frames too.
+
+## Which transactions you receive
+
+You receive every transaction sent through the relay that lists your wallet among its accounts. That includes:
+
+- a signer, including the fee payer,
+- any account the transaction names directly.
+
+Accounts that a transaction loads only through an address lookup table don't match. Subscribe to a wallet that signs, and you'll always match.
+
+Transactions sent to Solana some other way never appear here. Neither do transactions the relay rejects before accepting them, such as a failed preflight. That rejection is already in the `POST /v1/send` response.
+
+## Lifecycle
+
+Each transaction produces these updates, in order:
+
+| `data.status` | When | Notes |
+| --- | --- | --- |
+| `pending` | The relay accepted it | Sent once. Also replayed on subscribe while still pending |
+| `landed` | It reached your `commitment` and succeeded | Final |
+| `failed` | It reached your `commitment` and its execution failed | `err` and `reason` say why. Fees were paid |
+| `expired` | It wasn't seen on-chain before its blockhash expired | With `reason.name` `BlockhashExpired` it's final: it never executed, no fee was charged, and you can re-sign with a fresh blockhash. `NotLanded` means the relay couldn't match the blockhash to a recent block (a durable nonce, for example) and stopped sending after 90 seconds; check the signature on-chain before re-sending |
+
+A `failed` transaction can get **one more** `failed` update a second or two later. The relay re-reads the failure from the transaction's on-chain logs, which name the program that actually raised the error. That matters when your transaction calls Archer through another program. Use the latest update you've received for each signature.
+
+### `reason`
+
+`reason` is `null` unless the status is `failed` or `expired`.
+
+| Field | Meaning |
+| --- | --- |
+| `name` | The error's variant name. For a custom program error, it's that program's variant, such as `InvalidMakerBook` or `SlippageToleranceExceeded`. Otherwise it's Solana's, such as `BlockhashNotFound`. Expiry is `BlockhashExpired` or `NotLanded` |
+| `program` | The program that raised the error, or `null` for errors outside any instruction |
+| `programName` | That program's well-known name, such as `Archer` or `Token Program`, when known |
+| `instruction` | Index of the top-level instruction the error is attributed to |
+| `code` | The program's own error code, for custom program errors |
+
+Archer, System, Token, Token-2022 and Associated Token Account error codes are named. Any other program's code stays `Custom`, with the raw `code`.
+
+## Unsubscribe
+
+```json
+{ "op": "unsubscribe", "channels": ["tx_status"], "user": "<wallet>" }
+```
+
+A successful unsubscribe sends no reply, as on the market-data stream.
+
+## Heartbeat
+
+Send a ping about every 30 seconds:
+
+```json
+{ "op": "ping", "ts": 1733100000000 }
+```
+
+The server echoes it:
+
+```json
+{ "op": "pong", "ts": 1733100000000 }
+```
+
+The server also sends WebSocket ping frames every 30 seconds, and standard clients answer them automatically. It closes a connection after about 90–120 seconds without any frame from you.
+
+## Errors
+
+Errors are advisory `op` frames and don't close the connection:
+
+```json
+{ "op": "error", "code": "SUBSCRIPTION_LIMIT", "message": "At most 50 wallets per connection." }
+```
+
+| `code` | When |
+| --- | --- |
+| `INVALID_MESSAGE` | The frame couldn't be parsed, a channel other than `tx_status` was named, or `user` is missing or not a valid address |
+| `ALREADY_SUBSCRIBED` | You're already subscribed to that wallet |
+| `NOT_SUBSCRIBED` | You tried to unsubscribe from a wallet you weren't subscribed to |
+| `SUBSCRIPTION_LIMIT` | This connection already watches the maximum number of wallets |
+| `LAGGED` | Your connection fell behind and some updates were dropped. Check the affected transactions with `GET /v1/send/{signature}` |
+
+If your IP, or the server as a whole, has too many open connections, the upgrade itself is refused with HTTP `429` and `{"error":"TOO_MANY_CONNECTIONS"}`.
+
+## Limits
+
+| Limit | Default | Notes |
+| --- | --- | --- |
+| Wallets per connection | 50 | Over the limit returns `SUBSCRIPTION_LIMIT` |
+| Connections per IP | 20 | Excess upgrades are refused with HTTP `429` |
+| Max inbound message size | 16 KB | Larger frames close the connection |
+| Idle timeout | ~90–120 seconds | No frame from you, including transport pongs, for this long closes the connection |
+| Status retention | 10 minutes | A finished transaction stays queryable with `GET /v1/send/{signature}` for this long |
+
+## Examples
+
+### Terminal using wscat
+
+```shellscript
+npm i -g wscat
+
+wscat -c wss://send.archer.exchange/v1/ws
+```
+
+Then paste:
+
+```shellscript
+{ "op": "subscribe", "channels": ["tx_status"], "user": "<wallet>" }
+```
+
+Send a transaction from that wallet through the relay. Its `pending` update arrives right away, and the next update when it lands, fails or expires.
+
+### NodeJS
+
+```javascript
+import WebSocket from "ws";
+
+const WALLET = "<wallet>";
+const latest = new Map(); // signature -> last status body
+
+function connect() {
+  const ws = new WebSocket("wss://send.archer.exchange/v1/ws");
+  let pingTimer;
+
+  ws.on("open", () => {
+    ws.send(JSON.stringify({ op: "subscribe", channels: ["tx_status"], user: WALLET }));
+    pingTimer = setInterval(() => ws.send(JSON.stringify({ op: "ping", ts: Date.now() })), 30_000);
+  });
+
+  ws.on("message", (buf) => {
+    const msg = JSON.parse(buf.toString());
+    if (msg.op === "error") return console.warn(msg.code, msg.message);
+    if (msg.ch !== "tx_status") return;
+
+    const tx = msg.data;
+    latest.set(tx.signature, tx);
+    if (tx.status === "landed") console.log("landed", tx.signature, `${tx.landingMs}ms`);
+    if (tx.status === "failed") console.log("failed", tx.signature, tx.reason?.name);
+    if (tx.status === "expired") console.log("expired", tx.signature, "re-sign and resend");
+  });
+
+  ws.on("close", () => {
+    clearInterval(pingTimer);
+    setTimeout(connect, 1000); // subscriptions don't survive a reconnect; open re-subscribes
+  });
+}
+
+connect();
+```
+
+After a reconnect, the subscribe replays transactions that are still pending. A transaction that finished while you were disconnected isn't replayed. If you were waiting on one, read it once with `GET /v1/send/{signature}`.
+
+> **Privacy:** anyone can subscribe to any wallet. Updates carry only what the chain will show (signature, status, slot, error) and the relay's own send state, never a transaction's contents. Treat the feed as public, like the market-data stream.

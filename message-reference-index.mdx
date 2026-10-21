@@ -42,3 +42,13 @@ title: "Message reference index"
 | `limit_orders` | `placed`, `resized`, `canceled` | `market`, `maker`, `data`: LO payload |
 | `mini_tickers` | `update` | `data`: `market → {lastPrice, priceChangePercent24h, volume24h}` |
 | `market_updates` | `listed`, `status_changed`, `delisted` | `data` varies by `type` |
+
+### Transaction status feed (`wss://send.archer.exchange/v1/ws`)
+
+Same `op` frames as above for `subscribe`, `unsubscribe`, `subscribed`, `ping`, `pong` and `error`, with one channel:
+
+| `ch` | `type(s)` | Payload shape |
+| --- | --- | --- |
+| `tx_status` | `update` | `user`, `data`: the `GET /v1/send/{signature}` body (`signature`, `status`, `slot`, `err`, `reason`, …) |
+
+It adds one error code, `LAGGED`. See [Transaction status feed](/transaction-status-feed).
